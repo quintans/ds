@@ -2,7 +2,10 @@ module github.com/quintans/dstruct
 
 go 1.18
 
-require github.com/stretchr/testify v1.7.1
+require (
+	github.com/quintans/faults v1.7.1
+	github.com/stretchr/testify v1.7.1
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

@@ -1,14 +1,18 @@
-package collections
+package linkedlist
 
 import (
+	"container/list"
 	"errors"
 	"fmt"
+
+	"github.com/quintans/dstruct/collections"
 )
 
 type Element[T any] struct {
 	Value      T
 	next, prev *Element[T]
-	list       *DoublyLinkedList[T]
+	list       *List[T]
+	x          list.List
 }
 
 func (e *Element[T]) Next() *Element[T] {
@@ -29,31 +33,35 @@ func (e *Element[T]) Remove() {
 	e.list.cut(e)
 }
 
-var _ List[string] = (*DoublyLinkedList[string])(nil)
+var _ collections.List[string] = (*List[string])(nil)
 
-type DoublyLinkedList[T any] struct {
+type List[T any] struct {
 	size int
 	// sentinel
 	root   Element[T]
 	equals func(a, b T) bool
 }
 
-func NewDoublyLinkedList[T any](cmp func(a, b T) bool) *DoublyLinkedList[T] {
-	l := &DoublyLinkedList[T]{
+func New[T comparable]() *List[T] {
+	return NewCmp(collections.Equals[T])
+}
+
+func NewCmp[T any](cmp func(a, b T) bool) *List[T] {
+	l := &List[T]{
 		equals: cmp,
 	}
 	l.Clear()
 	return l
 }
 
-func (l *DoublyLinkedList[T]) Head() *Element[T] {
+func (l *List[T]) Head() *Element[T] {
 	if l.size == 0 {
 		return nil
 	}
 	return l.root.next
 }
 
-func (l *DoublyLinkedList[T]) Tail() *Element[T] {
+func (l *List[T]) Tail() *Element[T] {
 	if l.size == 0 {
 		return nil
 	}
@@ -61,42 +69,46 @@ func (l *DoublyLinkedList[T]) Tail() *Element[T] {
 }
 
 // Clear empty this linked list, O(1)
-func (l *DoublyLinkedList[T]) Clear() {
+func (l *List[T]) Clear() {
 	l.root.next = &l.root
 	l.root.prev = &l.root
 	l.size = 0
 }
 
 // Size returns the size of this linked list
-func (l *DoublyLinkedList[T]) Size() int {
+func (l *List[T]) Size() int {
 	return l.size
 }
 
 // Add adds element to the tail of the linked list, O(1)
-func (l *DoublyLinkedList[T]) AddAll(c Collection[T]) {
+func (l *List[T]) AddAll(c collections.Collection[T]) {
 	c.ForEach(func(_ int, b T) {
 		l.Add(b)
 	})
 }
 
 // Add adds element to the tail of the linked list, O(1)
-func (l *DoublyLinkedList[T]) Add(elems ...T) {
+func (l *List[T]) Add(elems ...T) {
 	for _, elem := range elems {
 		l.AddLast(elem)
 	}
 }
 
 // AddLast adds elements to the tail of the linked list, O(1)
-func (l *DoublyLinkedList[T]) AddLast(data T) {
-	l.insert(l.root.prev, &Element[T]{Value: data, list: l})
+func (l *List[T]) AddLast(data T) *Element[T] {
+	elem := &Element[T]{Value: data, list: l}
+	l.insert(l.root.prev, elem)
+	return elem
 }
 
 // AddFirst adds elements to the beginning (head) of this linked list, O(1)
-func (l *DoublyLinkedList[T]) AddFirst(data T) {
-	l.insert(&l.root, &Element[T]{Value: data, list: l})
+func (l *List[T]) AddFirst(data T) *Element[T] {
+	elem := &Element[T]{Value: data, list: l}
+	l.insert(&l.root, elem)
+	return elem
 }
 
-func (l *DoublyLinkedList[T]) insert(at, e *Element[T]) {
+func (l *List[T]) insert(at, e *Element[T]) {
 	e.next = at.next
 	e.prev = at
 
@@ -109,7 +121,7 @@ func (l *DoublyLinkedList[T]) insert(at, e *Element[T]) {
 }
 
 // MoveToLast moves element to the tail of the linked list, O(1)
-func (l *DoublyLinkedList[T]) MoveToLast(e *Element[T]) {
+func (l *List[T]) MoveToLast(e *Element[T]) {
 	if l.root.prev == e {
 		return
 	}
@@ -118,28 +130,30 @@ func (l *DoublyLinkedList[T]) MoveToLast(e *Element[T]) {
 }
 
 // MoveToFirst moves element to the beginning (head) of this linked list, O(1)
-func (l *DoublyLinkedList[T]) MoveToFirst(e *Element[T]) {
+func (l *List[T]) MoveToFirst(e *Element[T]) {
 	l.move(&l.root, e)
 }
 
-func (l *DoublyLinkedList[T]) move(at, e *Element[T]) {
+func (l *List[T]) move(at, e *Element[T]) {
 	l.cut(e)
 	l.insert(at, e)
 }
 
-func (l *DoublyLinkedList[T]) cut(e *Element[T]) T {
-	// removes element
-	e.prev.next = e.next
-	e.next.prev = e.prev
-	e.next = nil
-	e.prev = nil
-	e.list = nil
-	l.size--
+func (l *List[T]) cut(e *Element[T]) T {
+	if e.list == l {
+		// removes element
+		e.prev.next = e.next
+		e.next.prev = e.prev
+		e.next = nil
+		e.prev = nil
+		e.list = nil
+		l.size--
+	}
 	return e.Value
 }
 
 // AddAt adds an element at a specified index
-func (l *DoublyLinkedList[T]) AddAt(index int, data T) error {
+func (l *List[T]) AddAt(index int, data T) error {
 	at, err := l.findElementByIndex(index)
 	if err != nil {
 		return err
@@ -151,7 +165,7 @@ func (l *DoublyLinkedList[T]) AddAt(index int, data T) error {
 }
 
 // AddAt adds an element at a specified index
-func (l *DoublyLinkedList[T]) Set(index int, data T) error {
+func (l *List[T]) Set(index int, data T) error {
 	elem, err := l.findElementByIndex(index)
 	if err != nil {
 		return err
@@ -161,7 +175,7 @@ func (l *DoublyLinkedList[T]) Set(index int, data T) error {
 	return nil
 }
 
-func (l *DoublyLinkedList[T]) Get(index int) (T, error) {
+func (l *List[T]) Get(index int) (T, error) {
 	var zero T
 	elem, err := l.findElementByIndex(index)
 	if err != nil {
@@ -170,7 +184,7 @@ func (l *DoublyLinkedList[T]) Get(index int) (T, error) {
 	return elem.Value, nil
 }
 
-func (l *DoublyLinkedList[T]) findElementByIndex(index int) (*Element[T], error) {
+func (l *List[T]) findElementByIndex(index int) (*Element[T], error) {
 	if index < 0 || index >= l.size {
 		return nil, fmt.Errorf("index out of bounds [0 - %d): %d", l.size, index)
 	}
@@ -193,7 +207,7 @@ func (l *DoublyLinkedList[T]) findElementByIndex(index int) (*Element[T], error)
 }
 
 // PeekFirst checks the value of the first element (head) if it exists, O(1)
-func (l *DoublyLinkedList[T]) PeekFirst() (T, error) {
+func (l *List[T]) PeekFirst() (T, error) {
 	var zero T
 	if l.size == 0 {
 		return zero, errors.New("empty list")
@@ -202,7 +216,7 @@ func (l *DoublyLinkedList[T]) PeekFirst() (T, error) {
 }
 
 // PeekLast checks the value of the last element (tail) if it exists, O(1)
-func (l *DoublyLinkedList[T]) PeekLast() (T, error) {
+func (l *List[T]) PeekLast() (T, error) {
 	var zero T
 	if l.size == 0 {
 		return zero, errors.New("empty list")
@@ -211,7 +225,7 @@ func (l *DoublyLinkedList[T]) PeekLast() (T, error) {
 }
 
 // RemoveFirst removes the first value at the head of the linked list, O(1)
-func (l *DoublyLinkedList[T]) RemoveFirst() (T, error) {
+func (l *List[T]) RemoveFirst() (T, error) {
 	if l.size == 0 {
 		var zero T
 		return zero, errors.New("empty list")
@@ -221,7 +235,7 @@ func (l *DoublyLinkedList[T]) RemoveFirst() (T, error) {
 }
 
 // RemoveLast removes the last value at the tail of the linked list, O(1)
-func (l *DoublyLinkedList[T]) RemoveLast() (T, error) {
+func (l *List[T]) RemoveLast() (T, error) {
 	// Can't remove data from an empty list
 	if l.size == 0 {
 		var zero T
@@ -232,7 +246,7 @@ func (l *DoublyLinkedList[T]) RemoveLast() (T, error) {
 }
 
 // DeleteAt removes a element at a particular index, O(n)
-func (l *DoublyLinkedList[T]) DeleteAt(index int) (T, error) {
+func (l *List[T]) DeleteAt(index int) (T, error) {
 	elem, err := l.findElementByIndex(index)
 	if err != nil {
 		var zero T
@@ -243,7 +257,7 @@ func (l *DoublyLinkedList[T]) DeleteAt(index int) (T, error) {
 }
 
 // Delete removes a particular value in the linked list, O(n)
-func (l *DoublyLinkedList[T]) Delete(obj T) bool {
+func (l *List[T]) Delete(obj T) bool {
 	temp := &l.root
 	for i := 0; i < l.size; i++ {
 		if l.equals(temp.Value, obj) {
@@ -256,7 +270,7 @@ func (l *DoublyLinkedList[T]) Delete(obj T) bool {
 }
 
 // IndexOf finds the index of a particular value in the linked list, O(n)
-func (l *DoublyLinkedList[T]) IndexOf(obj T) int {
+func (l *List[T]) IndexOf(obj T) int {
 	temp := &l.root
 	for i := 0; i < l.size; i++ {
 		temp = temp.next
@@ -268,11 +282,11 @@ func (l *DoublyLinkedList[T]) IndexOf(obj T) int {
 }
 
 // Check is a value is contained within the linked list
-func (l *DoublyLinkedList[T]) Contains(obj T) bool {
+func (l *List[T]) Contains(obj T) bool {
 	return l.IndexOf(obj) != -1
 }
 
-func (l *DoublyLinkedList[T]) ForEach(fn func(int, T)) {
+func (l *List[T]) ForEach(fn func(int, T)) {
 	temp := &l.root
 	for i := 0; i < l.size; i++ {
 		temp = temp.next
@@ -280,7 +294,7 @@ func (l *DoublyLinkedList[T]) ForEach(fn func(int, T)) {
 	}
 }
 
-func (l *DoublyLinkedList[T]) ReplaceAll(fn func(int, T) T) {
+func (l *List[T]) ReplaceAll(fn func(int, T) T) {
 	temp := &l.root
 	for i := 0; i < l.size; i++ {
 		temp = temp.next
@@ -288,7 +302,7 @@ func (l *DoublyLinkedList[T]) ReplaceAll(fn func(int, T) T) {
 	}
 }
 
-func (l *DoublyLinkedList[T]) ToSlice() []T {
+func (l *List[T]) ToSlice() []T {
 	elems := make([]T, 0, l.size)
 	temp := &l.root
 	for i := 0; i < l.size; i++ {
@@ -298,36 +312,39 @@ func (l *DoublyLinkedList[T]) ToSlice() []T {
 	return elems
 }
 
-func (l *DoublyLinkedList[T]) Clone() *DoublyLinkedList[T] {
-	d := NewDoublyLinkedList(l.equals)
+func (l *List[T]) Clone() *List[T] {
+	d := NewCmp(l.equals)
 	d.AddAll(d)
 	return d
 }
 
-func (l *DoublyLinkedList[T]) Iterator() Iterator[T] {
-	return &DoublyLinkedListIterator[T]{
-		list: l,
-		trav: &l.root,
+func (l *List[T]) Iterator() collections.Iterator[T] {
+	return &Iterator[T]{
+		next: l.Head(),
+		cut:  l.cut,
 	}
 }
 
-type DoublyLinkedListIterator[T any] struct {
-	list *DoublyLinkedList[T]
-	trav *Element[T]
+type Iterator[T any] struct {
+	current *Element[T]
+	next    *Element[T]
+	cut     func(*Element[T]) T
 }
 
-func (i *DoublyLinkedListIterator[T]) HasNext() bool {
-	return i.trav.next != &i.list.root
+func (i *Iterator[T]) HasNext() bool {
+	return i.next != nil
 }
 
-func (i *DoublyLinkedListIterator[T]) Next() T {
-	data := i.trav.Value
-	i.trav = i.trav.next
-	return data
+func (i *Iterator[T]) Next() T {
+	i.current = i.next
+	i.next = i.next.Next()
+	return i.current.Value
 }
 
-func (i *DoublyLinkedListIterator[T]) Remove() {
-	if i.trav.prev != nil {
-		i.list.cut(i.trav.prev)
+func (i *Iterator[T]) Remove() {
+	if i.current != nil {
+		current := i.current
+		i.current = i.current.prev
+		i.cut(current)
 	}
 }

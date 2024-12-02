@@ -1,25 +1,23 @@
-package collections_test
+package arraylist_test
 
 import (
 	"testing"
 
-	"github.com/quintans/dstruct/collections"
+	"github.com/quintans/dstruct/collections/arraylist"
 	"github.com/stretchr/testify/require"
 )
 
 var unsortedArray = []int{10, 2, 6, 71, 3}
 
-var cmp = collections.Equals[int]
-
 func TestAdd(t *testing.T) {
-	list := collections.NewArrayList(cmp)
+	list := arraylist.New[int]()
 	list.Add(unsortedArray...)
 	require.EqualValues(t, unsortedArray, list.ToSlice())
 	require.Equal(t, len(unsortedArray), list.Size())
 }
 
 func TestGet(t *testing.T) {
-	list := collections.NewArrayList(cmp)
+	list := arraylist.New[int]()
 	list.Add(unsortedArray...)
 
 	testcases := []struct {
@@ -64,7 +62,7 @@ func TestGet(t *testing.T) {
 }
 
 func TestSet(t *testing.T) {
-	list := collections.NewArrayList(cmp)
+	list := arraylist.New[int]()
 	list.Add(unsortedArray...)
 
 	testcases := []struct {
@@ -110,15 +108,15 @@ func TestSet(t *testing.T) {
 }
 
 func TestAddAll(t *testing.T) {
-	list := collections.NewArrayList(cmp)
+	list := arraylist.New[int]()
 	list.Add(unsortedArray...)
-	list2 := collections.NewArrayList(cmp)
+	list2 := arraylist.New[int]()
 	list2.AddAll(list)
 	require.EqualValues(t, unsortedArray, list2.ToSlice())
 }
 
 func TestIndexOf(t *testing.T) {
-	list := collections.NewArrayList(cmp)
+	list := arraylist.New[int]()
 	list.Add(unsortedArray...)
 
 	i := list.IndexOf(2)
@@ -128,7 +126,7 @@ func TestIndexOf(t *testing.T) {
 }
 
 func TestContains(t *testing.T) {
-	list := collections.NewArrayList(cmp)
+	list := arraylist.New[int]()
 	list.Add(unsortedArray...)
 
 	ok := list.Contains(25)
@@ -138,7 +136,7 @@ func TestContains(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	list := collections.NewArrayList(cmp)
+	list := arraylist.New[int]()
 	list.Add(unsortedArray...)
 
 	ok := list.Delete(25)
@@ -148,7 +146,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestDeleteAt(t *testing.T) {
-	list := collections.NewArrayList(cmp)
+	list := arraylist.New[int]()
 	list.Add(unsortedArray...)
 
 	testcases := []struct {
@@ -195,7 +193,7 @@ func TestDeleteAt(t *testing.T) {
 }
 
 func TestForEach(t *testing.T) {
-	list := collections.NewArrayList(cmp)
+	list := arraylist.New[int]()
 	list.Add(unsortedArray...)
 
 	list.ForEach(func(k, v int) {
@@ -204,7 +202,7 @@ func TestForEach(t *testing.T) {
 }
 
 func TestReplaceAll(t *testing.T) {
-	list := collections.NewArrayList(cmp)
+	list := arraylist.New[int]()
 	list.Add(unsortedArray...)
 
 	list.ReplaceAll(func(_, _ int) int {
@@ -216,7 +214,7 @@ func TestReplaceAll(t *testing.T) {
 }
 
 func TestEnumerator(t *testing.T) {
-	list := collections.NewArrayList(cmp)
+	list := arraylist.New[int]()
 	list.Add(unsortedArray...)
 
 	pos := 0

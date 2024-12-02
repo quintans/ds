@@ -1,16 +1,18 @@
-package collections_test
+package linkedhashset_test
 
 import (
 	"testing"
 
-	"github.com/quintans/dstruct/collections"
+	"github.com/quintans/dstruct/collections/linkedhashset"
 	"github.com/stretchr/testify/require"
 )
+
+var unsortedArray = []int{10, 2, 6, 71, 3}
 
 func TestLinkedHashSetSame(t *testing.T) {
 	r := require.New(t)
 
-	list := collections.NewLinkedHashSet(collections.Equals[int], collections.HashCode[int])
+	list := linkedhashset.New[int]()
 	list.Add(unsortedArray...)
 	list.Add(2)
 	r.Equal(5, list.Size())
@@ -19,7 +21,7 @@ func TestLinkedHashSetSame(t *testing.T) {
 func TestLinkedHashSetAddAll(t *testing.T) {
 	r := require.New(t)
 
-	list := collections.NewLinkedHashSet(collections.Equals[int], collections.HashCode[int])
+	list := linkedhashset.New[int]()
 	list.Add(unsortedArray...)
 	r.EqualValues(list.ToSlice(), unsortedArray)
 }
@@ -27,7 +29,7 @@ func TestLinkedHashSetAddAll(t *testing.T) {
 func TestLinkedHashSetContains(t *testing.T) {
 	r := require.New(t)
 
-	list := collections.NewLinkedHashSet(collections.Equals[int], collections.HashCode[int])
+	list := linkedhashset.New[int]()
 	list.Add(unsortedArray...)
 
 	r.False(list.Contains(25))
@@ -37,7 +39,7 @@ func TestLinkedHashSetContains(t *testing.T) {
 func TestLinkedHashSetIterator(t *testing.T) {
 	r := require.New(t)
 
-	list := collections.NewLinkedHashSet(collections.Equals[int], collections.HashCode[int])
+	list := linkedhashset.New[int]()
 	list.Add(unsortedArray...)
 
 	arr := []int{}

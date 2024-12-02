@@ -1,6 +1,16 @@
-package collections
+package queue
 
-var _ Queuer[int] = (*Queue[int])(nil)
+import "github.com/quintans/dstruct/collections"
+
+var _ collections.Queuer[int] = (*Queue[int])(nil)
+
+type Option[K any] func(*Queue[K])
+
+func WithCapacity[K, V any](capacity int) Option[K] {
+	return func(l *Queue[K]) {
+		l.capacity = capacity
+	}
+}
 
 type Queue[T any] struct {
 	head     *item[T]
@@ -14,14 +24,20 @@ type item[T any] struct {
 	value T
 }
 
-// NewQueue creates a circular queue.
+// New creates a circular queue.
 // The Idea is to have a FIFO with a windowing (circular) feature.
 // If the max size is reached, the oldest element will be removed.
 // If capacity is 0 it will add until memory is exhausted
-func NewQueue[T any](capacity int) *Queue[T] {
-	return &Queue[T]{
-		capacity: capacity,
+func New[T any](options ...Option[T]) *Queue[T] {
+	q := &Queue[T]{
+		capacity: 0,
 	}
+
+	for _, opt := range options {
+		opt(q)
+	}
+
+	return q
 }
 
 func (f *Queue[T]) Size() int {

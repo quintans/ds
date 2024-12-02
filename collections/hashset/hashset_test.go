@@ -1,16 +1,18 @@
-package collections_test
+package hashset_test
 
 import (
 	"testing"
 
-	"github.com/quintans/dstruct/collections"
+	"github.com/quintans/dstruct/collections/hashset"
 	"github.com/stretchr/testify/require"
 )
+
+var unsortedArray = []int{10, 2, 6, 71, 3}
 
 func TestHashSetSame(t *testing.T) {
 	r := require.New(t)
 
-	list := collections.NewHashSet(collections.Equals[int], collections.HashCode[int])
+	list := hashset.New[int]()
 	list.Add(unsortedArray...)
 	list.Add(2)
 	r.Equal(5, list.Size())
@@ -19,17 +21,17 @@ func TestHashSetSame(t *testing.T) {
 func TestHashSetContains(t *testing.T) {
 	r := require.New(t)
 
-	list := collections.NewHashSet(collections.Equals[int], collections.HashCode[int])
+	list := hashset.New[int]()
 	list.Add(unsortedArray...)
 
-	r.True(list.Contains(25))
-	r.False(list.Contains(2))
+	r.False(list.Contains(25))
+	r.True(list.Contains(2))
 }
 
 func TestHashSetInEnumerator(t *testing.T) {
 	r := require.New(t)
 
-	hs := collections.NewHashSet(collections.Equals[int], collections.HashCode[int])
+	hs := hashset.New[int]()
 	hs.Add(unsortedArray...)
 
 	tmp := []int{}

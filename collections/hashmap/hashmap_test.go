@@ -1,10 +1,11 @@
-package collections_test
+package hashmap_test
 
 import (
 	"strconv"
 	"testing"
 
 	"github.com/quintans/dstruct/collections"
+	"github.com/quintans/dstruct/collections/hashmap"
 	"github.com/stretchr/testify/require"
 )
 
@@ -13,10 +14,7 @@ const value1 = "World"
 func TestPutAndGet(t *testing.T) {
 	r := require.New(t)
 
-	hm := collections.NewHashMap[string, string](
-		collections.Equals[string],
-		collections.HashCode[string],
-	)
+	hm := hashmap.New[string, string](hashmap.WithCapacity[string, string](16))
 	k := "Hello"
 	hm.Put(k, value1)
 	v, ok := hm.Get(k)
@@ -29,7 +27,7 @@ func TestPutAndGet(t *testing.T) {
 func TestResize(t *testing.T) {
 	r := require.New(t)
 
-	hm := collections.NewHashMap[string, int](collections.Equals[string], collections.HashCode[string])
+	hm := hashmap.New[string, int]()
 	loop := 20
 	// Insert
 	for i := 0; i < loop; i++ {
@@ -66,7 +64,7 @@ var foos = []Foo{
 func TestHashMapIterator(t *testing.T) {
 	r := require.New(t)
 
-	hm := collections.NewHashMap[Foo, string](
+	hm := hashmap.NewFunc[Foo, string](
 		collections.Equals[Foo],
 		func(a Foo) int { return collections.HASH_SEED.HashString(a.Name).Int() },
 	)

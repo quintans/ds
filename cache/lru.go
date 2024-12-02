@@ -1,14 +1,14 @@
 package cache
 
 import (
-	"github.com/quintans/dstruct/collections"
+	"github.com/quintans/dstruct/collections/linkedlist"
 )
 
 var _ Cache[string] = (*LRUCache[string])(nil)
 
 type LRUCache[V any] struct {
-	entries *collections.DoublyLinkedList[*entry[V]]
-	table   map[string]*collections.Element[*entry[V]]
+	entries *linkedlist.List[*entry[V]]
+	table   map[string]*linkedlist.Element[*entry[V]]
 
 	capacity int
 }
@@ -18,7 +18,7 @@ type entry[V any] struct {
 	value V
 }
 
-func NewLRUCache[V any](capacity int) *LRUCache[V] {
+func NewLRU[V any](capacity int) *LRUCache[V] {
 	c := &LRUCache[V]{
 		capacity: capacity,
 	}
@@ -27,10 +27,10 @@ func NewLRUCache[V any](capacity int) *LRUCache[V] {
 }
 
 func (c *LRUCache[V]) Clear() {
-	c.entries = collections.NewDoublyLinkedList(func(a, b *entry[V]) bool {
+	c.entries = linkedlist.NewCmp(func(a, b *entry[V]) bool {
 		return a.key == b.key
 	})
-	c.table = map[string]*collections.Element[*entry[V]]{}
+	c.table = map[string]*linkedlist.Element[*entry[V]]{}
 }
 
 func (c *LRUCache[V]) Size() int {

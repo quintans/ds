@@ -7,7 +7,7 @@ import (
 )
 
 func TestCapacity(t *testing.T) {
-	lru := NewLRUCache[string](2)
+	lru := NewLRU[string](2)
 	lru.Put("one", "um")
 	lru.Put("two", "dois")
 	lru.Put("three", "tres") // will make "one" to be dropped

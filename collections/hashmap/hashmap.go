@@ -1,10 +1,20 @@
-package collections
+package hashmap
 
 import (
 	"strings"
+
+	"github.com/quintans/dstruct/collections"
 )
 
-const default_hashmap_capacity = 16
+const defaultCapacity = 16
+
+type Option[K, V any] func(*Map[K, V])
+
+func WithCapacity[K, V any](capacity int) Option[K, V] {
+	return func(l *Map[K, V]) {
+		l.initialCapacity = capacity
+	}
+}
 
 type linkedEntry[K, V any] struct {
 	key   K
@@ -13,9 +23,9 @@ type linkedEntry[K, V any] struct {
 }
 
 // check if it implements Map interface
-var _ Map[string, any] = (*HashMap[string, any])(nil)
+var _ collections.Map[string, any] = (*Map[string, any])(nil)
 
-type HashMap[K, V any] struct {
+type Map[K, V any] struct {
 	maxThreshold    float32
 	minThreshold    float32
 	maxSize         int
@@ -28,31 +38,36 @@ type HashMap[K, V any] struct {
 	hashCode        func(a K) int
 }
 
-func NewHashMap[K, V any](cmp func(a, b K) bool, hash func(a K) int) *HashMap[K, V] {
-	return NewHashMapWithCapacity[K, V](cmp, hash, default_hashmap_capacity)
+func New[K comparable, V any](options ...Option[K, V]) *Map[K, V] {
+	return NewFunc[K, V](collections.Equals[K], collections.HashCode[K], options...)
 }
 
-func NewHashMapWithCapacity[K, V any](cmp func(a, b K) bool, hash func(a K) int, capacity int) *HashMap[K, V] {
-	hm := &HashMap[K, V]{
+func NewFunc[K, V any](cmp func(a, b K) bool, hash func(a K) int, options ...Option[K, V]) *Map[K, V] {
+	hm := &Map[K, V]{
 		maxThreshold:    0.75,
 		minThreshold:    0.25,
-		tableSize:       capacity,
-		initialCapacity: capacity,
+		tableSize:       defaultCapacity,
+		initialCapacity: defaultCapacity,
 		equals:          cmp,
 		hashCode:        hash,
 	}
+
+	for _, opt := range options {
+		opt(hm)
+	}
+
 	hm.Clear()
 	return hm
 }
 
-func (h *HashMap[K, V]) Clear() {
+func (h *Map[K, V]) Clear() {
 	h.maxSize = int(float32(h.tableSize) * h.maxThreshold)
 	h.minSize = int(float32(h.tableSize) * h.minThreshold)
 	h.size = 0
 	h.table = make([]*linkedEntry[K, V], h.tableSize)
 }
 
-func (h *HashMap[K, V]) resize(newSize int) {
+func (h *Map[K, V]) resize(newSize int) {
 	oldTableSize := h.tableSize
 	h.tableSize = newSize
 	h.maxSize = int(float32(h.tableSize) * h.maxThreshold)
@@ -73,11 +88,11 @@ func (h *HashMap[K, V]) resize(newSize int) {
 	}
 }
 
-func (h *HashMap[K, V]) index(key K) int {
+func (h *Map[K, V]) index(key K) int {
 	return ((h.hashCode(key) & 0x7FFFFFFF) % h.tableSize)
 }
 
-func (h *HashMap[K, V]) Get(key K) (V, bool) {
+func (h *Map[K, V]) Get(key K) (V, bool) {
 	hash := h.index(key)
 	if h.table[hash] != nil {
 		entry := h.table[hash]
@@ -88,10 +103,12 @@ func (h *HashMap[K, V]) Get(key K) (V, bool) {
 			return entry.value, true
 		}
 	}
-	return Zero[V](), false
+
+	var zero V
+	return zero, false
 }
 
-func (h *HashMap[K, V]) Put(key K, value V) (V, bool) {
+func (h *Map[K, V]) Put(key K, value V) (V, bool) {
 	hash := h.index(key)
 	if h.table[hash] == nil {
 		h.table[hash] = &linkedEntry[K, V]{key, value, nil}
@@ -120,12 +137,12 @@ func (h *HashMap[K, V]) Put(key K, value V) (V, bool) {
 	return zero, false
 }
 
-func (h *HashMap[K, V]) ContainsKey(key K) bool {
+func (h *Map[K, V]) ContainsKey(key K) bool {
 	_, ok := h.Get(key)
 	return ok
 }
 
-func (h *HashMap[K, V]) Delete(key K) (V, bool) {
+func (h *Map[K, V]) Delete(key K) (V, bool) {
 	hash := h.index(key)
 	if entry := h.table[hash]; entry != nil {
 		var prevEntry *linkedEntry[K, V]
@@ -153,12 +170,12 @@ func (h *HashMap[K, V]) Delete(key K) (V, bool) {
 	return zero, false
 }
 
-func (this *HashMap[K, V]) Size() int {
+func (this *Map[K, V]) Size() int {
 	return this.size
 }
 
-func (h *HashMap[K, V]) Entries() []KeyValue[K, V] {
-	data := make([]KeyValue[K, V], h.size)
+func (h *Map[K, V]) Entries() []collections.KV[K, V] {
+	data := make([]collections.KV[K, V], h.size)
 	i := 0
 	for it := h.Iterator(); it.HasNext(); {
 		data[i] = it.Next()
@@ -167,7 +184,7 @@ func (h *HashMap[K, V]) Entries() []KeyValue[K, V] {
 	return data
 }
 
-func (h *HashMap[K, V]) Values() []V {
+func (h *Map[K, V]) Values() []V {
 	data := make([]V, h.size)
 	i := 0
 	for it := h.Iterator(); it.HasNext(); {
@@ -177,21 +194,21 @@ func (h *HashMap[K, V]) Values() []V {
 	return data
 }
 
-func (h *HashMap[K, V]) ForEach(fn func(K, V)) {
+func (h *Map[K, V]) ForEach(fn func(K, V)) {
 	for it := h.Iterator(); it.HasNext(); {
 		entry := it.Next()
 		fn(entry.Key, entry.Value)
 	}
 }
 
-func (h *HashMap[K, V]) ReplaceAll(fn func(K, V) V) {
-	it := &HashMapIterator[K, V]{hashmap: h}
+func (h *Map[K, V]) ReplaceAll(fn func(K, V) V) {
+	it := &Iterator[K, V]{hashmap: h}
 	for entry := it.next(); entry != nil; {
 		entry.value = fn(entry.key, entry.value)
 	}
 }
 
-func (h *HashMap[K, V]) String() string {
+func (h *Map[K, V]) String() string {
 	var s strings.Builder
 	s.WriteString("[")
 	counter := 0
@@ -207,8 +224,8 @@ func (h *HashMap[K, V]) String() string {
 	return s.String()
 }
 
-func (h *HashMap[K, V]) Clone() *HashMap[K, V] {
-	m := NewHashMapWithCapacity[K, V](h.equals, h.hashCode, h.initialCapacity)
+func (h *Map[K, V]) Clone() *Map[K, V] {
+	m := NewFunc[K, V](h.equals, h.hashCode, WithCapacity[K, V](h.initialCapacity))
 	for it := h.Iterator(); it.HasNext(); {
 		kv := it.Next()
 		m.Put(kv.Key, kv.Value)
@@ -219,35 +236,35 @@ func (h *HashMap[K, V]) Clone() *HashMap[K, V] {
 
 // returns a function that in every call return the next value
 // if key is null, no value was retrieved
-func (h *HashMap[K, V]) Iterator() Iterator[KeyValue[K, V]] {
-	it := &HashMapIterator[K, V]{hashmap: h}
+func (h *Map[K, V]) Iterator() collections.Iterator[collections.KV[K, V]] {
+	it := &Iterator[K, V]{hashmap: h}
 	// initiates
 	it.next()
 	return it
 }
 
-type HashMapIterator[K, V any] struct {
-	hashmap   *HashMap[K, V]
+type Iterator[K, V any] struct {
+	hashmap   *Map[K, V]
 	hash      int
 	prevEntry *linkedEntry[K, V]
 	entry     *linkedEntry[K, V]
 }
 
-func (it *HashMapIterator[K, V]) HasNext() bool {
+func (it *Iterator[K, V]) HasNext() bool {
 	return it.entry != nil
 }
 
-func (it *HashMapIterator[K, V]) Next() KeyValue[K, V] {
+func (it *Iterator[K, V]) Next() collections.KV[K, V] {
 	if it.entry != nil {
-		kv := KeyValue[K, V]{it.entry.key, it.entry.value}
+		kv := collections.KV[K, V]{Key: it.entry.key, Value: it.entry.value}
 		it.next()
 		return kv
 	}
-	var zero KeyValue[K, V]
+	var zero collections.KV[K, V]
 	return zero
 }
 
-func (it *HashMapIterator[K, V]) next() *linkedEntry[K, V] {
+func (it *Iterator[K, V]) next() *linkedEntry[K, V] {
 	max := len(it.hashmap.table)
 	var aEntry *linkedEntry[K, V]
 	for idx := it.hash; aEntry == nil && idx < max; idx++ {
@@ -266,7 +283,7 @@ func (it *HashMapIterator[K, V]) next() *linkedEntry[K, V] {
 	return aEntry
 }
 
-func (it *HashMapIterator[K, V]) Remove() {
+func (it *Iterator[K, V]) Remove() {
 	if it.entry != nil {
 		if it.prevEntry == nil {
 			it.hashmap.table[it.hash] = it.entry.next

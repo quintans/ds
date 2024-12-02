@@ -1,20 +1,38 @@
-package collections_test
+package linkedhashmap_test
 
 import (
+	"fmt"
 	"testing"
 
-	"github.com/quintans/dstruct/collections"
+	"github.com/quintans/dstruct/collections/linkedhashmap"
 	"github.com/stretchr/testify/require"
 )
+
+type Foo struct {
+	Name string
+	Age  int
+}
+
+var foos = []Foo{
+	{"Martim", 9},
+	{"Paulo", 41},
+	{"Monica", 33},
+	{"Francisca", 15},
+}
 
 func TestLinkedHashMapIterator(t *testing.T) {
 	r := require.New(t)
 
-	lhm := collections.NewLinkedHashMap[Foo, string](collections.Equals[Foo], collections.HashCode[Foo])
+	lhm := linkedhashmap.New[Foo, string]()
 	lhm.Put(foos[0], "chilling")
 	lhm.Put(foos[1], "working")
 	lhm.Put(foos[2], "stressing")
 	lhm.Put(foos[3], "rebelling")
+
+	entries := lhm.Entries()
+	for _, e := range entries {
+		fmt.Printf("===> %v: %v\n", e.Key, e.Value)
+	}
 
 	tmp := []Foo{}
 	for it := lhm.Iterator(); it.HasNext(); {

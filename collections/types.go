@@ -1,10 +1,5 @@
 package collections
 
-func Zero[T any]() T {
-	var zero T
-	return zero
-}
-
 func Equals[T comparable](a, b T) bool {
 	return a == b
 }

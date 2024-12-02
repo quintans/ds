@@ -1,6 +1,8 @@
-package collections
+package stack
 
-var _ Stacker[int] = (*Stack[int])(nil)
+import "github.com/quintans/dstruct/collections"
+
+var _ collections.Stacker[int] = (*Stack[int])(nil)
 
 type element[T any] struct {
 	data T
@@ -12,7 +14,7 @@ type Stack[T any] struct {
 	size int
 }
 
-func NewStack[T any]() *Stack[T] {
+func New[T any]() *Stack[T] {
 	return &Stack[T]{}
 }
 

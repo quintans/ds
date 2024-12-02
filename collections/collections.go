@@ -33,12 +33,12 @@ type Iterator[T any] interface {
 	Remove()
 }
 
-type KeyValue[K, V any] struct {
+type KV[K, V any] struct {
 	Key   K
 	Value V
 }
 
-func (kv KeyValue[K, V]) String() string {
+func (kv KV[K, V]) String() string {
 	return fmt.Sprintf("{%v: %v}", kv.Key, kv.Value)
 }
 
@@ -53,11 +53,11 @@ type Map[K, V any] interface {
 	Get(K) (V, bool)
 	ContainsKey(K) bool
 
-	Entries() []KeyValue[K, V]
+	Entries() []KV[K, V]
 	Values() []V
 	ForEach(func(K, V))
 	ReplaceAll(func(K, V) V)
-	Iterator() Iterator[KeyValue[K, V]]
+	Iterator() Iterator[KV[K, V]]
 }
 
 type Queuer[T any] interface {

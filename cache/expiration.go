@@ -5,9 +5,9 @@ import (
 	"time"
 )
 
-var _ Cache[string] = (*ExpirationCache[string])(nil)
+var _ Cache[string] = (*Expiration[string])(nil)
 
-type ExpirationCache[V any] struct {
+type Expiration[V any] struct {
 	items    map[string]*item[V]
 	timeout  time.Duration
 	interval time.Duration
@@ -25,8 +25,8 @@ func (i *item[V]) expired() bool {
 	return i.expiration.Before(time.Now())
 }
 
-func NewExpirationCache[V any](timeout time.Duration, interval time.Duration) *ExpirationCache[V] {
-	cache := &ExpirationCache[V]{
+func NewExpiration[V any](timeout time.Duration, interval time.Duration) *Expiration[V] {
+	cache := &Expiration[V]{
 		items:    map[string]*item[V]{},
 		timeout:  timeout,
 		interval: interval,
@@ -36,7 +36,7 @@ func NewExpirationCache[V any](timeout time.Duration, interval time.Duration) *E
 	return cache
 }
 
-func (c *ExpirationCache[V]) Close() {
+func (c *Expiration[V]) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -46,7 +46,7 @@ func (c *ExpirationCache[V]) Close() {
 	}
 }
 
-func (c *ExpirationCache[V]) cleanup(quit chan struct{}) {
+func (c *Expiration[V]) cleanup(quit chan struct{}) {
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
 
@@ -61,7 +61,7 @@ func (c *ExpirationCache[V]) cleanup(quit chan struct{}) {
 }
 
 // Delete all expired items from the cache.
-func (c *ExpirationCache[V]) deleteExpired() {
+func (c *Expiration[V]) deleteExpired() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for k, v := range c.items {
@@ -71,7 +71,7 @@ func (c *ExpirationCache[V]) deleteExpired() {
 	}
 }
 
-func (c *ExpirationCache[V]) GetIfPresentAndTouch(key string) (V, bool) {
+func (c *Expiration[V]) GetIfPresentAndTouch(key string) (V, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -84,7 +84,7 @@ func (c *ExpirationCache[V]) GetIfPresentAndTouch(key string) (V, bool) {
 	return zero, false
 }
 
-func (c *ExpirationCache[V]) GetIfPresent(key string) (V, bool) {
+func (c *Expiration[V]) GetIfPresent(key string) (V, bool) {
 	c.mu.Lock()
 	v, ok := c.items[key]
 	c.mu.Unlock()
@@ -95,17 +95,17 @@ func (c *ExpirationCache[V]) GetIfPresent(key string) (V, bool) {
 	return zero, false
 }
 
-func (c *ExpirationCache[V]) Delete(key string) {
+func (c *Expiration[V]) Delete(key string) {
 	c.mu.Lock()
 	delete(c.items, key)
 	c.mu.Unlock()
 }
 
-func (c *ExpirationCache[V]) Get(key string, callback func() V) (V, bool) {
+func (c *Expiration[V]) Get(key string, callback func() V) (V, bool) {
 	return c.GetWithDuration(key, callback, c.timeout)
 }
 
-func (c *ExpirationCache[V]) GetWithDuration(key string, callback func() V, duration time.Duration) (V, bool) {
+func (c *Expiration[V]) GetWithDuration(key string, callback func() V, duration time.Duration) (V, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -117,23 +117,23 @@ func (c *ExpirationCache[V]) GetWithDuration(key string, callback func() V, dura
 	return v.value, ok
 }
 
-func (c *ExpirationCache[V]) Put(key string, value V) {
+func (c *Expiration[V]) Put(key string, value V) {
 	c.PutWithDuration(key, value, c.timeout)
 }
 
 // put a value in the cache, overwriting any previous value for that key
-func (c *ExpirationCache[V]) PutWithDuration(key string, value V, duration time.Duration) {
+func (c *Expiration[V]) PutWithDuration(key string, value V, duration time.Duration) {
 	c.mu.Lock()
 	// defer now sice I do not know what will happen in a out of memory error
 	defer c.mu.Unlock()
 	c.items[key] = &item[V]{value, time.Now().Add(duration)}
 }
 
-func (c *ExpirationCache[V]) Touch(key string) {
+func (c *Expiration[V]) Touch(key string) {
 	c.TouchWithDuration(key, c.timeout)
 }
 
-func (c *ExpirationCache[V]) TouchWithDuration(key string, duration time.Duration) {
+func (c *Expiration[V]) TouchWithDuration(key string, duration time.Duration) {
 	c.mu.Lock()
 	v, ok := c.items[key]
 	if ok {

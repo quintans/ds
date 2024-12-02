@@ -1,45 +1,63 @@
-package collections
+package arraylist
 
 import (
 	"fmt"
+
+	"github.com/quintans/dstruct/collections"
 )
 
-type ArrayList[T any] struct {
-	elements []T
-	capacity int
-	equals   func(a, b T) bool
-}
+const defaultCapacity = 16
 
-// check if it implements List interface
-var _ List[string] = (*ArrayList[string])(nil)
+type Option[T any] func(*List[T])
 
-func NewArrayList[T any](cmp func(a, b T) bool) *ArrayList[T] {
-	return NewArrayListWithCapacity(cmp, 16)
-}
-
-func NewArrayListWithCapacity[T any](cmp func(a, b T) bool, capacity int) *ArrayList[T] {
-	return &ArrayList[T]{
-		elements: make([]T, 0, capacity),
-		capacity: capacity,
-		equals:   cmp,
+func WithCapacity[T any](capacity int) Option[T] {
+	return func(l *List[T]) {
+		l.initialCapacity = capacity
 	}
 }
 
-func (a *ArrayList[T]) Clear() {
-	a.elements = make([]T, 0, a.capacity)
+type List[T any] struct {
+	elements        []T
+	initialCapacity int
+	equals          func(a, b T) bool
 }
 
-func (a *ArrayList[T]) ToSlice() []T {
+// check if it implements List interface
+var _ collections.List[string] = (*List[string])(nil)
+
+func New[T comparable](options ...Option[T]) *List[T] {
+	return NewCmp(collections.Equals[T], options...)
+}
+
+func NewCmp[T any](cmp func(a, b T) bool, options ...Option[T]) *List[T] {
+	l := &List[T]{
+		elements:        make([]T, 0, defaultCapacity),
+		initialCapacity: defaultCapacity,
+		equals:          cmp,
+	}
+
+	for _, opt := range options {
+		opt(l)
+	}
+
+	return l
+}
+
+func (a *List[T]) Clear() {
+	a.elements = make([]T, 0, a.initialCapacity)
+}
+
+func (a *List[T]) ToSlice() []T {
 	data := make([]T, len(a.elements), cap(a.elements))
 	copy(data, a.elements)
 	return data
 }
 
-func (a ArrayList[T]) Size() int {
+func (a List[T]) Size() int {
 	return len(a.elements)
 }
 
-func (a *ArrayList[T]) Get(pos int) (T, error) {
+func (a *List[T]) Get(pos int) (T, error) {
 	var zero T
 	if pos < 0 || pos >= a.Size() {
 		return zero, fmt.Errorf("index out of bounds [0 - %d): %d", len(a.elements), pos)
@@ -47,7 +65,7 @@ func (a *ArrayList[T]) Get(pos int) (T, error) {
 	return a.elements[pos], nil
 }
 
-func (a *ArrayList[T]) Set(pos int, value T) error {
+func (a *List[T]) Set(pos int, value T) error {
 	if pos < 0 || pos >= a.Size() {
 		return fmt.Errorf("index out of bounds [0 - %d): %d", len(a.elements), pos)
 	}
@@ -55,19 +73,19 @@ func (a *ArrayList[T]) Set(pos int, value T) error {
 	return nil
 }
 
-func (a *ArrayList[T]) AddAll(c Collection[T]) {
+func (a *List[T]) AddAll(c collections.Collection[T]) {
 	c.ForEach(func(_ int, t T) {
 		a.elements = append(a.elements, t)
 	})
 }
 
-func (this *ArrayList[T]) Add(data ...T) {
+func (this *List[T]) Add(data ...T) {
 	for _, v := range data {
 		this.elements = append(this.elements, v)
 	}
 }
 
-func (a *ArrayList[T]) IndexOf(value T) int {
+func (a *List[T]) IndexOf(value T) int {
 	for k, v := range a.elements {
 		if a.equals(v, value) {
 			return k
@@ -76,11 +94,11 @@ func (a *ArrayList[T]) IndexOf(value T) int {
 	return -1
 }
 
-func (a *ArrayList[T]) Contains(value T) bool {
+func (a *List[T]) Contains(value T) bool {
 	return a.IndexOf(value) != -1
 }
 
-func (a *ArrayList[T]) Delete(value T) bool {
+func (a *List[T]) Delete(value T) bool {
 	k := a.IndexOf(value)
 	if k == -1 {
 		return false
@@ -89,7 +107,7 @@ func (a *ArrayList[T]) Delete(value T) bool {
 	return err == nil
 }
 
-func (a *ArrayList[T]) DeleteAt(pos int) (T, error) {
+func (a *List[T]) DeleteAt(pos int) (T, error) {
 	var zero T
 	if pos < 0 || pos >= a.Size() {
 		return zero, fmt.Errorf("index out of bounds [0 - %d): %d", len(a.elements), pos)
@@ -104,54 +122,55 @@ func (a *ArrayList[T]) DeleteAt(pos int) (T, error) {
 	return data, nil
 }
 
-func (a *ArrayList[T]) ForEach(fn func(int, T)) {
+func (a *List[T]) ForEach(fn func(int, T)) {
 	for k, v := range a.elements {
 		fn(k, v)
 	}
 }
 
-func (a *ArrayList[T]) ReplaceAll(fn func(int, T) T) {
+func (a *List[T]) ReplaceAll(fn func(int, T) T) {
 	for k, v := range a.elements {
 		a.elements[k] = fn(k, v)
 	}
 }
 
-func (a *ArrayList[T]) String() string {
+func (a *List[T]) String() string {
 	return fmt.Sprint(a.elements)
 }
 
-func (a *ArrayList[T]) Clone() Collection[T] {
-	return &ArrayList[T]{
-		elements: a.ToSlice(),
-		capacity: a.capacity,
+func (a *List[T]) Clone() collections.Collection[T] {
+	return &List[T]{
+		elements:        a.ToSlice(),
+		initialCapacity: a.initialCapacity,
 	}
 }
 
 // returns a function that in every call return the next value
 // and a flag to see if a value was retrived, even if it was nil
-func (a *ArrayList[T]) Iterator() Iterator[T] {
-	return &ArrayListIterator[T]{list: a, pos: -1}
+func (a *List[T]) Iterator() collections.Iterator[T] {
+	return &Iterator[T]{list: a, pos: -1}
 }
 
-type ArrayListIterator[T any] struct {
-	list *ArrayList[T]
+type Iterator[T any] struct {
+	list *List[T]
 	pos  int
 }
 
-func (a *ArrayListIterator[T]) HasNext() bool {
+func (a *Iterator[T]) HasNext() bool {
 	return a.pos+1 < a.list.Size()
 }
 
-func (a *ArrayListIterator[T]) Next() T {
+func (a *Iterator[T]) Next() T {
 	if a.pos < a.list.Size() {
 		a.pos++
 		return a.list.elements[a.pos]
 	}
 
-	return Zero[T]()
+	var zero T
+	return zero
 }
 
-func (a *ArrayListIterator[T]) Remove() {
+func (a *Iterator[T]) Remove() {
 	if a.pos >= 0 && a.pos <= a.list.Size() {
 		a.list.DeleteAt(a.pos - 1)
 		// since this position was removed steps to the previous position

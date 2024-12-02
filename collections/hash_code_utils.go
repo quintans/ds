@@ -21,8 +21,10 @@ type Hasher interface {
 // An initial value for a hashCode, to which is added contributions
 // from fields. Using a non-zero value decreases collisions of hashCode
 // values.
-const HASH_SEED = Seed(23)
-const prime_number = 31
+const (
+	HASH_SEED    = Seed(23)
+	prime_number = 31
+)
 
 func numberHashCode(aObject any) Seed {
 	buf := new(bytes.Buffer)
