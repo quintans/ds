@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/quintans/dstruct/collections"
-	"github.com/quintans/dstruct/collections/hashmap"
+	"github.com/quintans/ds/collections"
+	"github.com/quintans/ds/collections/hashmap"
 	"github.com/stretchr/testify/require"
 )
 

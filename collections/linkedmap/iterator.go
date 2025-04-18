@@ -1,6 +1,6 @@
 package linkedmap
 
-import "github.com/quintans/dstruct/collections/linkedlist"
+import "github.com/quintans/ds/collections/linkedlist"
 
 // Iterator gives an iterator over all entries.
 // Call Next() to fetch the first element if any.

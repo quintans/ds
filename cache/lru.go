@@ -1,7 +1,7 @@
 package cache
 
 import (
-	"github.com/quintans/dstruct/collections/linkedlist"
+	"github.com/quintans/ds/collections/linkedlist"
 )
 
 var _ Cache[string] = (*LRUCache[string])(nil)

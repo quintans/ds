@@ -3,7 +3,7 @@ package hashset_test
 import (
 	"testing"
 
-	"github.com/quintans/dstruct/collections/hashset"
+	"github.com/quintans/ds/collections/hashset"
 	"github.com/stretchr/testify/require"
 )
 

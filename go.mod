@@ -1,6 +1,6 @@
-module github.com/quintans/dstruct
+module github.com/quintans/ds
 
-go 1.18
+go 1.24
 
 require (
 	github.com/quintans/faults v1.7.1

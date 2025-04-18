@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/quintans/dstruct/collections/linkedmap"
+	"github.com/quintans/ds/collections/linkedmap"
 	"github.com/stretchr/testify/require"
 )
 

@@ -3,7 +3,7 @@ package linkedhashset_test
 import (
 	"testing"
 
-	"github.com/quintans/dstruct/collections/linkedhashset"
+	"github.com/quintans/ds/collections/linkedhashset"
 	"github.com/stretchr/testify/require"
 )
 

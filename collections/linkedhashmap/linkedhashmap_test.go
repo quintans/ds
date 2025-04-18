@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/quintans/dstruct/collections/linkedhashmap"
+	"github.com/quintans/ds/collections/linkedhashmap"
 	"github.com/stretchr/testify/require"
 )
 

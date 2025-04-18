@@ -3,7 +3,7 @@ package hashmap
 import (
 	"strings"
 
-	"github.com/quintans/dstruct/collections"
+	"github.com/quintans/ds/collections"
 )
 
 const defaultCapacity = 16

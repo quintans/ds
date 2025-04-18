@@ -3,7 +3,7 @@ package arraylist_test
 import (
 	"testing"
 
-	"github.com/quintans/dstruct/collections/arraylist"
+	"github.com/quintans/ds/collections/arraylist"
 	"github.com/stretchr/testify/require"
 )
 

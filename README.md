@@ -1,2 +1,2 @@
-# dstruct
+# ds
 PoC of data structures

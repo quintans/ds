@@ -1,6 +1,6 @@
 package stack
 
-import "github.com/quintans/dstruct/collections"
+import "github.com/quintans/ds/collections"
 
 var _ collections.Stacker[int] = (*Stack[int])(nil)
 

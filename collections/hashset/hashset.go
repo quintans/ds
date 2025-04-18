@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/quintans/dstruct/collections"
-	"github.com/quintans/dstruct/collections/hashmap"
+	"github.com/quintans/ds/collections"
+	"github.com/quintans/ds/collections/hashmap"
 )
 
 const defaultCapacity = 16

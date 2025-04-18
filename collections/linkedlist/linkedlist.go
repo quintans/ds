@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/quintans/dstruct/collections"
+	"github.com/quintans/ds/collections"
 )
 
 type Element[T any] struct {

@@ -3,7 +3,7 @@ package linkedlist_test
 import (
 	"testing"
 
-	"github.com/quintans/dstruct/collections/linkedlist"
+	"github.com/quintans/ds/collections/linkedlist"
 	"github.com/stretchr/testify/assert"
 )
 

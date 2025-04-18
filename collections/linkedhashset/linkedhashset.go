@@ -1,8 +1,8 @@
 package linkedhashset
 
 import (
-	"github.com/quintans/dstruct/collections"
-	"github.com/quintans/dstruct/collections/hashset"
+	"github.com/quintans/ds/collections"
+	"github.com/quintans/ds/collections/hashset"
 )
 
 const defaultCapacity = 16

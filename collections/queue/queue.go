@@ -1,6 +1,6 @@
 package queue
 
-import "github.com/quintans/dstruct/collections"
+import "github.com/quintans/ds/collections"
 
 var _ collections.Queuer[int] = (*Queue[int])(nil)
 

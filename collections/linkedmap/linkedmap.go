@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/quintans/dstruct/collections/linkedlist"
+	"github.com/quintans/ds/collections/linkedlist"
 )
 
 type Map[K comparable, V any] struct {

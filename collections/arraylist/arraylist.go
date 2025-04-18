@@ -3,7 +3,7 @@ package arraylist
 import (
 	"fmt"
 
-	"github.com/quintans/dstruct/collections"
+	"github.com/quintans/ds/collections"
 )
 
 const defaultCapacity = 16

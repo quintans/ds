@@ -1,9 +1,9 @@
 package linkedhashmap
 
 import (
-	"github.com/quintans/dstruct/collections"
-	"github.com/quintans/dstruct/collections/hashmap"
-	"github.com/quintans/dstruct/collections/linkedlist"
+	"github.com/quintans/ds/collections"
+	"github.com/quintans/ds/collections/hashmap"
+	"github.com/quintans/ds/collections/linkedlist"
 )
 
 const defaultCapacity = 16
