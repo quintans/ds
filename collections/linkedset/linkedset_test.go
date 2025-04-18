@@ -1,9 +1,10 @@
-package linkedhashset_test
+package linkedset_test
 
 import (
+	"slices"
 	"testing"
 
-	"github.com/quintans/ds/collections/linkedhashset"
+	"github.com/quintans/ds/collections/linkedset"
 	"github.com/stretchr/testify/require"
 )
 
@@ -12,7 +13,7 @@ var unsortedArray = []int{10, 2, 6, 71, 3}
 func TestLinkedHashSetSame(t *testing.T) {
 	r := require.New(t)
 
-	list := linkedhashset.New[int]()
+	list := linkedset.New[int]()
 	list.Add(unsortedArray...)
 	list.Add(2)
 	r.Equal(5, list.Size())
@@ -21,30 +22,31 @@ func TestLinkedHashSetSame(t *testing.T) {
 func TestLinkedHashSetAddAll(t *testing.T) {
 	r := require.New(t)
 
-	list := linkedhashset.New[int]()
+	list := linkedset.New[int]()
 	list.Add(unsortedArray...)
-	r.EqualValues(list.ToSlice(), unsortedArray)
+	values := slices.Collect(list.Values())
+	r.EqualValues(values, unsortedArray)
 }
 
 func TestLinkedHashSetContains(t *testing.T) {
 	r := require.New(t)
 
-	list := linkedhashset.New[int]()
+	list := linkedset.New[int]()
 	list.Add(unsortedArray...)
 
 	r.False(list.Contains(25))
 	r.True(list.Contains(2))
 }
 
-func TestLinkedHashSetIterator(t *testing.T) {
+func TestLinkedHashSetValues(t *testing.T) {
 	r := require.New(t)
 
-	list := linkedhashset.New[int]()
+	list := linkedset.New[int]()
 	list.Add(unsortedArray...)
 
 	arr := []int{}
-	for e := list.Iterator(); e.HasNext(); {
-		arr = append(arr, e.Next())
+	for v := range list.Values() {
+		arr = append(arr, v)
 	}
 	r.EqualValues(unsortedArray, arr)
 }

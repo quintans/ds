@@ -23,23 +23,24 @@ func (m *MapJSON) Unwrap() *Map[string, any] {
 
 // MarshalJSON implements the json.Marshaller interface, so it could be serialized.
 // When serializing, the keys of the map will keep the order they are added.
-func (m MapJSON) MarshalJSON() ([]byte, error) {
+func (mj *MapJSON) MarshalJSON() ([]byte, error) {
 	var out bytes.Buffer
 
+	m := mj.Unwrap()
 	out.WriteString("{")
 	idx := 0
-	for it := m.list.Head(); it != nil; it = it.Next() {
+	for k, v := range m.Entries() {
 		if idx > 0 {
 			out.WriteString(",")
 		}
 
-		esc := strings.Replace(it.Value.key, `"`, `\"`, -1)
+		esc := strings.Replace(k, `"`, `\"`, -1)
 		out.WriteString(`"` + esc + `"`)
 
 		out.WriteString(":")
 
 		// marshal the value
-		b, err := json.Marshal(it.Value.value)
+		b, err := json.Marshal(v)
 		if err != nil {
 			return []byte{}, faults.Wrap(err)
 		}
@@ -100,7 +101,7 @@ func (m *MapJSON) parseObject(dec *json.Decoder) error {
 		if err != nil {
 			return faults.Wrap(err)
 		}
-		om.Set(key, val)
+		om.Put(key, val)
 	}
 	return nil
 }

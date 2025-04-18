@@ -1,101 +1,103 @@
 package cache
 
-import (
-	"github.com/quintans/ds/collections/linkedlist"
-)
-
-var _ Cache[string] = (*LRUCache[string])(nil)
-
-type LRUCache[V any] struct {
-	entries *linkedlist.List[*entry[V]]
-	table   map[string]*linkedlist.Element[*entry[V]]
-
-	capacity int
-}
-
-type entry[V any] struct {
-	key   string
+// NodeKV represents a node in the doubly linked list
+type NodeKV[K comparable, V any] struct {
+	key   K
 	value V
+	next  *NodeKV[K, V]
+	prev  *NodeKV[K, V]
 }
 
-func NewLRU[V any](capacity int) *LRUCache[V] {
-	c := &LRUCache[V]{
+// LRU represents a Least Recently Used cache
+//
+// Head -> Node -> <-prev- Node(value) -next-> <- Node <-Tail
+type LRU[K comparable, V any] struct {
+	capacity int
+	cache    map[K]*NodeKV[K, V]
+	head     *NodeKV[K, V]
+	tail     *NodeKV[K, V]
+}
+
+func NewLRU[K comparable, V any](capacity int) *LRU[K, V] {
+	return &LRU[K, V]{
 		capacity: capacity,
+		cache:    make(map[K]*NodeKV[K, V], capacity),
 	}
-	c.Clear()
-	return c
 }
 
-func (c *LRUCache[V]) Clear() {
-	c.entries = linkedlist.NewCmp(func(a, b *entry[V]) bool {
-		return a.key == b.key
-	})
-	c.table = map[string]*linkedlist.Element[*entry[V]]{}
-}
-
-func (c *LRUCache[V]) Size() int {
-	return len(c.table)
-}
-
-func (c *LRUCache[V]) GetIfPresent(key string) (V, bool) {
-	return c.get(key)
-}
-
-func (c *LRUCache[V]) get(key string) (V, bool) {
-	element := c.table[key]
-	if element != nil {
-		// move to front
-		c.entries.MoveToFirst(element)
-		return element.Value.value, true
+func (l *LRU[K, V]) Get(key K) (V, bool) {
+	if node, ok := l.cache[key]; ok {
+		l.moveToFront(node)
+		return node.value, true
 	}
 	var zero V
 	return zero, false
 }
 
-// Get gets a the value under the key. If the value is not found it will use the value of the callback function, store it and return it.
-// ok=true indicating that it was found in the cache
-// ok=false indicating that it was not found in the cache and was created by the callback
-func (c *LRUCache[V]) Get(key string, callback func() V) (V, bool) {
-	value, ok := c.get(key)
-	if !ok {
-		value = callback()
-		c.add(key, value)
+func (l *LRU[K, V]) Put(key K, value V) {
+	if node, ok := l.cache[key]; ok {
+		node.value = value
+		l.moveToFront(node)
+		return
 	}
-	return value, ok
+
+	if l.Size() == l.capacity {
+		delete(l.cache, l.tail.key)
+		l.remove(l.tail)
+	}
+
+	newNode := &NodeKV[K, V]{key: key, value: value}
+	l.cache[key] = newNode
+	l.add(newNode)
 }
 
-func (c *LRUCache[V]) Put(key string, value V) {
-	element := c.table[key]
-	if element != nil {
-		e := element.Value
-		e.value = value
-		c.entries.MoveToFirst(element)
+func (l *LRU[K, V]) Delete(key K) {
+	if node, ok := l.cache[key]; ok {
+		l.remove(node)
+		delete(l.cache, key)
+	}
+}
+
+func (l *LRU[K, V]) Clear() {
+	l.cache = make(map[K]*NodeKV[K, V], l.capacity)
+	l.head = nil
+	l.tail = nil
+}
+
+func (l *LRU[K, V]) Size() int {
+	return len(l.cache)
+}
+
+func (l *LRU[K, V]) moveToFront(node *NodeKV[K, V]) {
+	l.remove(node)
+	l.add(node)
+}
+
+func (l *LRU[K, V]) remove(node *NodeKV[K, V]) {
+	if node.prev != nil {
+		node.prev.next = node.next
 	} else {
-		c.add(key, value)
+		l.head = node.next
 	}
-}
 
-func (c *LRUCache[V]) add(key string, value V) {
-	if c.entries.Size() == c.capacity {
-		// if at full capacity recycle last element
-		element := c.entries.Tail()
-		e := element.Value
-		element.Value = &entry[V]{key, value}
-		c.entries.MoveToFirst(element)
-
-		delete(c.table, e.key)
-		c.table[key] = element
+	if node.next != nil {
+		node.next.prev = node.prev
 	} else {
-		c.entries.AddFirst(&entry[V]{key, value})
-		c.table[key] = c.entries.Head()
+		l.tail = node.prev
 	}
+
+	node.next = nil
+	node.prev = nil
 }
 
-func (c *LRUCache[V]) Delete(key string) {
-	element := c.table[key]
-	if element != nil {
-		// remove from list
-		element.Remove()
+func (l *LRU[K, V]) add(node *NodeKV[K, V]) {
+	if l.head == nil {
+		l.head = node
+		l.tail = node
+		return
 	}
-	delete(c.table, key)
+
+	l.head.prev = node
+	node.next = l.head
+	l.head = node
 }

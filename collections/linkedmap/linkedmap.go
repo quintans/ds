@@ -2,123 +2,165 @@ package linkedmap
 
 import (
 	"fmt"
+	"iter"
+	"maps"
 	"strings"
 
+	"github.com/quintans/ds/collections"
 	"github.com/quintans/ds/collections/linkedlist"
 )
 
-type Map[K comparable, V any] struct {
-	entries map[K]*linkedlist.Element[*Entry[K, V]]
-	list    *linkedlist.List[*Entry[K, V]]
-}
+const defaultCapacity = 16
 
-type Entry[K comparable, V any] struct {
-	key   K
-	value V
-}
+type Option[K comparable, V any] func(*Map[K, V])
 
-func (e Entry[K, V]) Key() K {
-	return e.key
-}
-
-func (e Entry[K, V]) Value() V {
-	return e.value
-}
-
-func New[K comparable, V any]() *Map[K, V] {
-	return &Map[K, V]{
-		entries: map[K]*linkedlist.Element[*Entry[K, V]]{},
-		list: linkedlist.NewCmp(func(a, b *Entry[K, V]) bool {
-			return a.key == b.key
-		}),
+func WithCapacity[K comparable, V any](capacity int) Option[K, V] {
+	return func(l *Map[K, V]) {
+		l.initialCapacity = capacity
 	}
+}
+
+type Map[K comparable, V any] struct {
+	keyOrder        *linkedlist.List[K]
+	entries         map[K]*entry[V]
+	initialCapacity int
+}
+
+type entry[V any] struct {
+	value           V
+	keyOrderRemover func()
+}
+
+func New[K comparable, V any](options ...Option[K, V]) *Map[K, V] {
+	m := &Map[K, V]{
+		initialCapacity: defaultCapacity,
+	}
+
+	for _, opt := range options {
+		opt(m)
+	}
+
+	m.Clear()
+	return m
+}
+
+func (m *Map[K, V]) Clear() {
+	m.keyOrder = linkedlist.NewCmp(collections.Equals[K])
+	m.entries = make(map[K]*entry[V], defaultCapacity)
 }
 
 func (m *Map[K, V]) Size() int {
 	return len(m.entries)
 }
 
-func (m *Map[K, V]) Set(key K, value V) (val V, existed bool) {
-	if entry, existed := m.entries[key]; existed { // If the key exists, it is updated
-		oldValue := entry.Value.value
-		entry.Value.value = value
-		return oldValue, true
+func (m *Map[K, V]) Get(key K) (V, bool) {
+	v, ok := m.entries[key]
+	if !ok {
+		var zero V
+		return zero, false
 	}
-	entry := &Entry[K, V]{
-		key:   key,
-		value: value,
-	}
-	element := m.list.AddLast(entry) // Add to linked list
-	m.entries[key] = element         // Add to map
-	return value, false
+	return v.value, ok
 }
 
-func (m *Map[K, V]) Delete(key K) (val V, existed bool) {
-	if entry, exists := m.entries[key]; exists { // If present
-		entry.Remove()         // Remove from linked list
-		delete(m.entries, key) // Remove from map
-		return entry.Value.value, true
+func (m *Map[K, V]) Put(key K, value V) (V, bool) {
+	var old V
+	e, ok := m.entries[key]
+	if ok {
+		old = e.value
+		e.value = value
+	} else {
+		m.keyOrder.Add(key)
+		c := m.keyOrder.Tail()
+		e = &entry[V]{
+			value:           value,
+			keyOrderRemover: c.Remove,
+		}
+		m.entries[key] = e
 	}
-	return
+
+	return old, ok
 }
 
-func (m *Map[K, V]) Get(key K) (val V, existed bool) {
-	if entry, existed := m.entries[key]; existed {
-		return entry.Value.value, true
-	}
-	return
+func (m *Map[K, V]) ContainsKey(key K) bool {
+	_, ok := m.entries[key]
+	return ok
 }
 
-func (m *Map[K, V]) Range(f func(key K, value V, idx int) bool) {
-	idx := 0
-	for e := m.list.Head(); e != nil; e = e.Next() {
-		if e.Value != nil {
-			if ok := f(e.Value.key, e.Value.value, idx); !ok {
+func (l *Map[K, V]) Delete(key K) (V, bool) {
+	old, ok := l.entries[key]
+	if !ok {
+		var zero V
+		return zero, false
+	}
+
+	old.keyOrderRemover()
+	delete(l.entries, key)
+	return old.value, ok
+}
+
+func (l *Map[K, V]) Entries() iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		for k := range l.keyOrder.Values() {
+			v, ok := l.entries[k]
+			if !ok {
+				continue
+			}
+			if !yield(k, v.value) {
 				return
 			}
-			idx++
 		}
 	}
 }
 
-func (m *Map[K, V]) Each(f func(key K, value V)) {
-	for e := m.list.Head(); e != nil; e = e.Next() {
-		if e.Value != nil {
-			f(e.Value.key, e.Value.value)
+func (l *Map[K, V]) Keys() iter.Seq[K] {
+	return func(yield func(K) bool) {
+		for k := range l.keyOrder.Values() {
+			if !yield(k) {
+				return
+			}
 		}
 	}
 }
 
-func (m *Map[K, V]) Keys() []K {
-	keys := make([]K, 0, len(m.entries))
-	m.Each(func(key K, _ V) {
-		keys = append(keys, key)
-	})
-	return keys
+func (l *Map[K, V]) Values() iter.Seq[V] {
+	return func(yield func(V) bool) {
+		for k := range l.keyOrder.Values() {
+			v, ok := l.entries[k]
+			if !ok {
+				continue
+			}
+			if !yield(v.value) {
+				return
+			}
+		}
+	}
 }
 
-func (m *Map[K, V]) Values() []V {
-	values := make([]V, 0, len(m.entries))
-	m.Each(func(_ K, value V) {
-		values = append(values, value)
-	})
-	return values
-}
-
-func (m *Map[K, V]) Entries() []*Entry[K, V] {
-	entries := make([]*Entry[K, V], 0, len(m.entries))
-	m.Each(func(key K, value V) {
-		entries = append(entries, &Entry[K, V]{key: key, value: value})
-	})
-	return entries
+func (l *Map[K, V]) Clone() *Map[K, V] {
+	return &Map[K, V]{
+		keyOrder:        l.keyOrder.Clone(),
+		entries:         maps.Clone(l.entries),
+		initialCapacity: l.initialCapacity,
+	}
 }
 
 // String returns a string representation of container
 func (m *Map[K, V]) String() string {
-	str := "LinkedMap\nmap["
-	it := m.Iterator()
-	for it.Next() {
-		str += fmt.Sprintf("%v:%v ", it.Key(), it.Value())
+	sb := strings.Builder{}
+
+	sb.WriteString("LinkedHashMap\nmap[")
+	c := 0
+	for k := range m.keyOrder.Values() {
+		v, ok := m.entries[k]
+		if !ok {
+			continue
+		}
+		if c > 0 {
+			sb.WriteString(" ")
+		}
+		c++
+		sb.WriteString(fmt.Sprintf("%v:%v", k, v))
 	}
-	return strings.TrimRight(str, " ") + "]"
+	sb.WriteString("]")
+	return sb.String()
 }

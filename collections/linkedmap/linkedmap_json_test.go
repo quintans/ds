@@ -2,6 +2,7 @@ package linkedmap_test
 
 import (
 	"encoding/json"
+	"slices"
 	"testing"
 
 	"github.com/quintans/ds/collections/linkedmap"
@@ -14,12 +15,7 @@ func TestSerialisation(t *testing.T) {
 	err := json.Unmarshal([]byte(s), om)
 	require.NoError(t, err)
 
-	order := []string{}
-	om.Unwrap().Range(func(key string, _ any, _ int) bool {
-		order = append(order, key)
-		return true
-	})
-
+	order := slices.Collect(om.Unwrap().Keys())
 	require.Equal(t, []string{"one", "two", "three", "sub", "array"}, order)
 
 	j, err := json.Marshal(om)

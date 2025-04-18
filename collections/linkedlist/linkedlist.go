@@ -1,31 +1,28 @@
 package linkedlist
 
 import (
-	"container/list"
 	"errors"
 	"fmt"
+	"iter"
 
 	"github.com/quintans/ds/collections"
 )
 
 type Element[T any] struct {
-	Value      T
+	value      T
 	next, prev *Element[T]
 	list       *List[T]
-	x          list.List
+}
+
+func (e *Element[T]) Value() T {
+	return e.value
 }
 
 func (e *Element[T]) Next() *Element[T] {
-	if e.next == &e.list.root {
-		return nil
-	}
 	return e.next
 }
 
 func (e *Element[T]) Previous() *Element[T] {
-	if e.prev == &e.list.root {
-		return nil
-	}
 	return e.prev
 }
 
@@ -33,12 +30,10 @@ func (e *Element[T]) Remove() {
 	e.list.cut(e)
 }
 
-var _ collections.List[string] = (*List[string])(nil)
-
 type List[T any] struct {
-	size int
-	// sentinel
-	root   Element[T]
+	size   int
+	head   *Element[T]
+	tail   *Element[T]
 	equals func(a, b T) bool
 }
 
@@ -55,23 +50,17 @@ func NewCmp[T any](cmp func(a, b T) bool) *List[T] {
 }
 
 func (l *List[T]) Head() *Element[T] {
-	if l.size == 0 {
-		return nil
-	}
-	return l.root.next
+	return l.head
 }
 
 func (l *List[T]) Tail() *Element[T] {
-	if l.size == 0 {
-		return nil
-	}
-	return l.root.prev
+	return l.tail
 }
 
 // Clear empty this linked list, O(1)
 func (l *List[T]) Clear() {
-	l.root.next = &l.root
-	l.root.prev = &l.root
+	l.head = nil
+	l.tail = nil
 	l.size = 0
 }
 
@@ -80,40 +69,60 @@ func (l *List[T]) Size() int {
 	return l.size
 }
 
-// Add adds element to the tail of the linked list, O(1)
-func (l *List[T]) AddAll(c collections.Collection[T]) {
-	c.ForEach(func(_ int, b T) {
-		l.Add(b)
-	})
-}
-
-// Add adds element to the tail of the linked list, O(1)
-func (l *List[T]) Add(elems ...T) {
-	for _, elem := range elems {
-		l.AddLast(elem)
-	}
-}
-
 // AddLast adds elements to the tail of the linked list, O(1)
-func (l *List[T]) AddLast(data T) *Element[T] {
-	elem := &Element[T]{Value: data, list: l}
-	l.insert(l.root.prev, elem)
+func (l *List[T]) Add(data T) *Element[T] {
+	elem := &Element[T]{value: data, list: l}
+
+	if l.tail == nil {
+		l.head = elem
+		l.tail = elem
+		l.size++
+	} else {
+		l.insertAfter(l.tail, elem)
+	}
+
 	return elem
 }
 
 // AddFirst adds elements to the beginning (head) of this linked list, O(1)
 func (l *List[T]) AddFirst(data T) *Element[T] {
-	elem := &Element[T]{Value: data, list: l}
-	l.insert(&l.root, elem)
+	elem := &Element[T]{value: data, list: l}
+	if l.head == nil {
+		l.head = elem
+		l.tail = elem
+		l.size++
+	} else {
+		l.insertBefore(l.head, elem)
+	}
 	return elem
 }
 
-func (l *List[T]) insert(at, e *Element[T]) {
-	e.next = at.next
+func (l *List[T]) insertAfter(at, e *Element[T]) {
 	e.prev = at
+	e.next = at.next
 
-	e.prev.next = e
-	e.next.prev = e
+	if e.next != nil {
+		e.next.prev = e
+	} else {
+		l.tail = e
+	}
+	at.next = e
+
+	e.list = l
+
+	l.size++
+}
+
+func (l *List[T]) insertBefore(at, e *Element[T]) {
+	e.next = at
+	e.prev = at.prev
+
+	if e.prev != nil {
+		e.prev.next = e
+	} else {
+		l.head = e
+	}
+	at.prev = e
 
 	e.list = l
 
@@ -122,34 +131,43 @@ func (l *List[T]) insert(at, e *Element[T]) {
 
 // MoveToLast moves element to the tail of the linked list, O(1)
 func (l *List[T]) MoveToLast(e *Element[T]) {
-	if l.root.prev == e {
-		return
-	}
-
-	l.move(l.root.prev, e)
+	l.moveAfter(l.tail, e)
 }
 
 // MoveToFirst moves element to the beginning (head) of this linked list, O(1)
 func (l *List[T]) MoveToFirst(e *Element[T]) {
-	l.move(&l.root, e)
+	l.moveBefore(l.head, e)
 }
 
-func (l *List[T]) move(at, e *Element[T]) {
+func (l *List[T]) moveAfter(at, e *Element[T]) {
 	l.cut(e)
-	l.insert(at, e)
+	l.insertAfter(at, e)
 }
 
-func (l *List[T]) cut(e *Element[T]) T {
-	if e.list == l {
-		// removes element
+func (l *List[T]) moveBefore(at, e *Element[T]) {
+	l.cut(e)
+	l.insertBefore(at, e)
+}
+
+func (l *List[T]) cut(e *Element[T]) {
+	if e.prev != nil {
 		e.prev.next = e.next
-		e.next.prev = e.prev
-		e.next = nil
-		e.prev = nil
-		e.list = nil
-		l.size--
+	} else {
+		l.head = e.next
 	}
-	return e.Value
+
+	if e.next != nil {
+		e.next.prev = e.prev
+	} else {
+		l.tail = e.prev
+	}
+
+	e.next = nil
+	e.prev = nil
+
+	e.list = nil
+
+	l.size--
 }
 
 // AddAt adds an element at a specified index
@@ -159,7 +177,7 @@ func (l *List[T]) AddAt(index int, data T) error {
 		return err
 	}
 
-	l.insert(at, &Element[T]{Value: data, list: l})
+	l.insertBefore(at, &Element[T]{value: data, list: l})
 
 	return nil
 }
@@ -170,7 +188,7 @@ func (l *List[T]) Set(index int, data T) error {
 	if err != nil {
 		return err
 	}
-	elem.Value = data
+	elem.value = data
 
 	return nil
 }
@@ -181,7 +199,7 @@ func (l *List[T]) Get(index int) (T, error) {
 	if err != nil {
 		return zero, err
 	}
-	return elem.Value, nil
+	return elem.value, nil
 }
 
 func (l *List[T]) findElementByIndex(index int) (*Element[T], error) {
@@ -192,13 +210,13 @@ func (l *List[T]) findElementByIndex(index int) (*Element[T], error) {
 	var temp *Element[T]
 	// Search from the front of the list
 	if index < l.size/2 {
-		temp = l.root.next
+		temp = l.head
 		for i := 0; i != index; i++ {
 			temp = temp.next
 		}
 		// Search from the back of the list
 	} else {
-		temp = l.root.prev
+		temp = l.tail
 		for i := l.size - 1; i != index; i-- {
 			temp = temp.prev
 		}
@@ -208,11 +226,11 @@ func (l *List[T]) findElementByIndex(index int) (*Element[T], error) {
 
 // PeekFirst checks the value of the first element (head) if it exists, O(1)
 func (l *List[T]) PeekFirst() (T, error) {
-	var zero T
 	if l.size == 0 {
+		var zero T
 		return zero, errors.New("empty list")
 	}
-	return l.root.next.Value, nil
+	return l.head.value, nil
 }
 
 // PeekLast checks the value of the last element (tail) if it exists, O(1)
@@ -221,7 +239,7 @@ func (l *List[T]) PeekLast() (T, error) {
 	if l.size == 0 {
 		return zero, errors.New("empty list")
 	}
-	return l.root.prev.Value, nil
+	return l.tail.value, nil
 }
 
 // RemoveFirst removes the first value at the head of the linked list, O(1)
@@ -231,7 +249,9 @@ func (l *List[T]) RemoveFirst() (T, error) {
 		return zero, errors.New("empty list")
 	}
 
-	return l.cut(l.root.next), nil
+	value := l.head.value
+	l.cut(l.head)
+	return value, nil
 }
 
 // RemoveLast removes the last value at the tail of the linked list, O(1)
@@ -242,7 +262,10 @@ func (l *List[T]) RemoveLast() (T, error) {
 		return zero, errors.New("empty list")
 	}
 
-	return l.cut(l.root.prev), nil
+	value := l.tail.value
+	l.cut(l.tail)
+
+	return value, nil
 }
 
 // DeleteAt removes a element at a particular index, O(n)
@@ -253,14 +276,17 @@ func (l *List[T]) DeleteAt(index int) (T, error) {
 		return zero, err
 	}
 
-	return l.cut(elem), nil
+	value := elem.value
+	l.cut(elem)
+
+	return value, nil
 }
 
 // Delete removes a particular value in the linked list, O(n)
 func (l *List[T]) Delete(obj T) bool {
-	temp := &l.root
+	temp := l.head
 	for i := 0; i < l.size; i++ {
-		if l.equals(temp.Value, obj) {
+		if l.equals(temp.value, obj) {
 			l.cut(temp)
 			return true
 		}
@@ -271,12 +297,12 @@ func (l *List[T]) Delete(obj T) bool {
 
 // IndexOf finds the index of a particular value in the linked list, O(n)
 func (l *List[T]) IndexOf(obj T) int {
-	temp := &l.root
+	temp := l.head
 	for i := 0; i < l.size; i++ {
-		temp = temp.next
-		if l.equals(temp.Value, obj) {
+		if l.equals(temp.value, obj) {
 			return i
 		}
+		temp = temp.next
 	}
 	return -1
 }
@@ -286,65 +312,30 @@ func (l *List[T]) Contains(obj T) bool {
 	return l.IndexOf(obj) != -1
 }
 
-func (l *List[T]) ForEach(fn func(int, T)) {
-	temp := &l.root
-	for i := 0; i < l.size; i++ {
-		temp = temp.next
-		fn(i, temp.Value)
+func (l *List[T]) Values() iter.Seq[T] {
+	return func(yield func(T) bool) {
+		temp := l.head
+		for range l.size {
+			if !yield(temp.value) {
+				return
+			}
+			temp = temp.next
+		}
 	}
 }
 
 func (l *List[T]) ReplaceAll(fn func(int, T) T) {
-	temp := &l.root
+	temp := l.head
 	for i := 0; i < l.size; i++ {
+		temp.value = fn(i, temp.value)
 		temp = temp.next
-		temp.Value = fn(i, temp.Value)
 	}
-}
-
-func (l *List[T]) ToSlice() []T {
-	elems := make([]T, 0, l.size)
-	temp := &l.root
-	for i := 0; i < l.size; i++ {
-		temp = temp.next
-		elems = append(elems, temp.Value)
-	}
-	return elems
 }
 
 func (l *List[T]) Clone() *List[T] {
 	d := NewCmp(l.equals)
-	d.AddAll(d)
+	for v := range l.Values() {
+		d.Add(v)
+	}
 	return d
-}
-
-func (l *List[T]) Iterator() collections.Iterator[T] {
-	return &Iterator[T]{
-		next: l.Head(),
-		cut:  l.cut,
-	}
-}
-
-type Iterator[T any] struct {
-	current *Element[T]
-	next    *Element[T]
-	cut     func(*Element[T]) T
-}
-
-func (i *Iterator[T]) HasNext() bool {
-	return i.next != nil
-}
-
-func (i *Iterator[T]) Next() T {
-	i.current = i.next
-	i.next = i.next.Next()
-	return i.current.Value
-}
-
-func (i *Iterator[T]) Remove() {
-	if i.current != nil {
-		current := i.current
-		i.current = i.current.prev
-		i.cut(current)
-	}
 }

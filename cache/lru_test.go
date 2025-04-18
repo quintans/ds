@@ -3,26 +3,26 @@ package cache
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCapacity(t *testing.T) {
-	lru := NewLRU[string](2)
+	lru := NewLRU[string, string](2)
 	lru.Put("one", "um")
 	lru.Put("two", "dois")
 	lru.Put("three", "tres") // will make "one" to be dropped
 
-	_, found := lru.GetIfPresent("one")
-	require.False(t, found)
-	_, found = lru.GetIfPresent("two")
-	require.True(t, found)
-	_, found = lru.GetIfPresent("three")
-	require.True(t, found)
-	v, found := lru.Get("one", func() string {
-		return "xxx"
-	})
-	require.Equal(t, "xxx", v)
-	require.False(t, found)
+	_, found := lru.Get("one")
+	assert.False(t, found)
+
+	v, found := lru.Get("two")
+	assert.True(t, found)
+	assert.Equal(t, "dois", v)
+
+	v, found = lru.Get("three")
+	assert.True(t, found)
+	assert.Equal(t, "tres", v)
 
 	lru.Put("three", "yyy") // will move it to the front
 
