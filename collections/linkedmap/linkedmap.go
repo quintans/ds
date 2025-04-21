@@ -6,7 +6,6 @@ import (
 	"maps"
 	"strings"
 
-	"github.com/quintans/ds/collections"
 	"github.com/quintans/ds/collections/linkedlist"
 )
 
@@ -45,7 +44,7 @@ func New[K comparable, V any](options ...Option[K, V]) *Map[K, V] {
 }
 
 func (m *Map[K, V]) Clear() {
-	m.keyOrder = linkedlist.NewCmp(collections.Equals[K])
+	m.keyOrder = linkedlist.New[K]()
 	m.entries = make(map[K]*entry[V], defaultCapacity)
 }
 

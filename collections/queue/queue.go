@@ -1,9 +1,5 @@
 package queue
 
-import "github.com/quintans/ds/collections"
-
-var _ collections.Queuer[int] = (*Queue[int])(nil)
-
 type Option[K any] func(*Queue[K])
 
 func WithCapacity[K, V any](capacity int) Option[K] {

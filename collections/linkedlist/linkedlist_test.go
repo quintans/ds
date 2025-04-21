@@ -314,17 +314,17 @@ func TestDelete(t *testing.T) {
 	l.Add("b") // duplicate
 	l.Add("d")
 
-	assert.False(t, l.Delete("e"))
+	assert.False(t, l.Delete(equalFunc("e")))
 	assert.Equal(t, 5, l.Size())
 
 	// Delete middle (first occurrence)
-	assert.True(t, l.Delete("b"))
+	assert.True(t, l.Delete(equalFunc("b")))
 	assert.Equal(t, 4, l.Size())
 	vals := collectValues(l)
 	assert.Equal(t, []string{"a", "c", "b", "d"}, vals)
 
 	// Delete head
-	assert.True(t, l.Delete("a"))
+	assert.True(t, l.Delete(equalFunc("a")))
 	assert.Equal(t, 3, l.Size())
 	vals = collectValues(l)
 	assert.Equal(t, []string{"c", "b", "d"}, vals)
@@ -333,7 +333,7 @@ func TestDelete(t *testing.T) {
 	assert.Equal(t, "c", p)
 
 	// Delete tail
-	assert.True(t, l.Delete("d"))
+	assert.True(t, l.Delete(equalFunc("d")))
 	assert.Equal(t, 2, l.Size())
 	vals = collectValues(l)
 	assert.Equal(t, []string{"c", "b"}, vals)
@@ -342,32 +342,16 @@ func TestDelete(t *testing.T) {
 	assert.Equal(t, "b", p)
 
 	// Delete remaining
-	assert.True(t, l.Delete("c"))
-	assert.True(t, l.Delete("b"))
+	assert.True(t, l.Delete(equalFunc("c")))
+	assert.True(t, l.Delete(equalFunc("b")))
 	assert.Equal(t, 0, l.Size())
-	assert.False(t, l.Delete("c")) // Already deleted
+	assert.False(t, l.Delete(equalFunc("c"))) // Already deleted
 }
 
-func TestIndexOfContains(t *testing.T) {
-	l := linkedlist.New[int]()
-	l.Add(10)
-	l.Add(20)
-	l.Add(30)
-	l.Add(20) // duplicate
-
-	assert.Equal(t, 0, l.IndexOf(10))
-	assert.Equal(t, 1, l.IndexOf(20)) // First occurrence
-	assert.Equal(t, 2, l.IndexOf(30))
-	assert.Equal(t, -1, l.IndexOf(40))
-
-	assert.True(t, l.Contains(10))
-	assert.True(t, l.Contains(20))
-	assert.True(t, l.Contains(30))
-	assert.False(t, l.Contains(40))
-
-	l.Clear()
-	assert.Equal(t, -1, l.IndexOf(10))
-	assert.False(t, l.Contains(10))
+func equalFunc(s string) func(string) bool {
+	return func(v string) bool {
+		return v == s
+	}
 }
 
 func TestMoveToFirstLast(t *testing.T) {
@@ -570,38 +554,4 @@ func collectValues[T any](l *linkedlist.List[T]) []T {
 		values = append(values, v)
 	}
 	return values
-}
-
-// Example of using a custom comparison function
-type Point struct {
-	X, Y int
-}
-
-func TestNewCmp(t *testing.T) {
-	pointEquals := func(a, b Point) bool {
-		return a.X == b.X && a.Y == b.Y
-	}
-	l := linkedlist.NewCmp(pointEquals)
-
-	p1 := Point{1, 1}
-	p2 := Point{2, 2}
-	p3 := Point{1, 1} // Same value as p1
-
-	l.Add(p1)
-	l.Add(p2)
-
-	assert.True(t, l.Contains(p1))
-	assert.True(t, l.Contains(p3)) // Should find based on custom equals
-	assert.True(t, l.Contains(Point{1, 1}))
-	assert.False(t, l.Contains(Point{3, 3}))
-
-	assert.Equal(t, 0, l.IndexOf(p1))
-	assert.Equal(t, 0, l.IndexOf(p3))
-	assert.Equal(t, 1, l.IndexOf(p2))
-	assert.Equal(t, -1, l.IndexOf(Point{4, 4}))
-
-	assert.True(t, l.Delete(p3)) // Delete based on custom equals
-	assert.Equal(t, 1, l.Size())
-	assert.False(t, l.Contains(p1))
-	assert.True(t, l.Contains(p2))
 }

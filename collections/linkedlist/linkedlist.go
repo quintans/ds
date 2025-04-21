@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"iter"
-
-	"github.com/quintans/ds/collections"
 )
 
 type Element[T any] struct {
@@ -31,20 +29,13 @@ func (e *Element[T]) Remove() {
 }
 
 type List[T any] struct {
-	size   int
-	head   *Element[T]
-	tail   *Element[T]
-	equals func(a, b T) bool
+	size int
+	head *Element[T]
+	tail *Element[T]
 }
 
-func New[T comparable]() *List[T] {
-	return NewCmp(collections.Equals[T])
-}
-
-func NewCmp[T any](cmp func(a, b T) bool) *List[T] {
-	l := &List[T]{
-		equals: cmp,
-	}
+func New[T any]() *List[T] {
+	l := &List[T]{}
 	l.Clear()
 	return l
 }
@@ -283,10 +274,10 @@ func (l *List[T]) DeleteAt(index int) (T, error) {
 }
 
 // Delete removes a particular value in the linked list, O(n)
-func (l *List[T]) Delete(obj T) bool {
+func (l *List[T]) Delete(fn func(T) bool) bool {
 	temp := l.head
 	for i := 0; i < l.size; i++ {
-		if l.equals(temp.value, obj) {
+		if fn(temp.value) {
 			l.cut(temp)
 			return true
 		}
@@ -295,21 +286,12 @@ func (l *List[T]) Delete(obj T) bool {
 	return false
 }
 
-// IndexOf finds the index of a particular value in the linked list, O(n)
-func (l *List[T]) IndexOf(obj T) int {
+func (l *List[T]) ReplaceAll(fn func(int, T) T) {
 	temp := l.head
 	for i := 0; i < l.size; i++ {
-		if l.equals(temp.value, obj) {
-			return i
-		}
+		temp.value = fn(i, temp.value)
 		temp = temp.next
 	}
-	return -1
-}
-
-// Check is a value is contained within the linked list
-func (l *List[T]) Contains(obj T) bool {
-	return l.IndexOf(obj) != -1
 }
 
 func (l *List[T]) Values() iter.Seq[T] {
@@ -324,16 +306,20 @@ func (l *List[T]) Values() iter.Seq[T] {
 	}
 }
 
-func (l *List[T]) ReplaceAll(fn func(int, T) T) {
-	temp := l.head
-	for i := 0; i < l.size; i++ {
-		temp.value = fn(i, temp.value)
-		temp = temp.next
+func (l *List[T]) Entries() iter.Seq2[int, T] {
+	return func(yield func(int, T) bool) {
+		temp := l.head
+		for i := range l.size {
+			if !yield(i, temp.value) {
+				return
+			}
+			temp = temp.next
+		}
 	}
 }
 
 func (l *List[T]) Clone() *List[T] {
-	d := NewCmp(l.equals)
+	d := New[T]()
 	for v := range l.Values() {
 		d.Add(v)
 	}

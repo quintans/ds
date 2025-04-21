@@ -1,9 +1,5 @@
 package stack
 
-import "github.com/quintans/ds/collections"
-
-var _ collections.Stacker[int] = (*Stack[int])(nil)
-
 type element[T any] struct {
 	data T
 	next *element[T]
