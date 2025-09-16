@@ -1,6 +1,6 @@
 module github.com/quintans/ds
 
-go 1.24
+go 1.25
 
 require (
 	github.com/quintans/faults v1.7.1

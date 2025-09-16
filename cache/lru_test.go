@@ -8,7 +8,11 @@ import (
 )
 
 func TestCapacity(t *testing.T) {
-	lru := NewLRU[string, string](2)
+	delCalls := []string{}
+	onEvict := func(key string, value string) {
+		delCalls = append(delCalls, key)
+	}
+	lru := NewLRU(2, onEvict)
 	lru.Put("one", "um")
 	lru.Put("two", "dois")
 	lru.Put("three", "tres") // will make "one" to be dropped
@@ -28,4 +32,12 @@ func TestCapacity(t *testing.T) {
 
 	lru.Delete("three")
 	require.Equal(t, 1, lru.Size())
+
+	assert.Len(t, delCalls, 2)
+	assert.Equal(t, []string{"one", "three"}, delCalls)
+
+	lru.Clear()
+	assert.Equal(t, 0, lru.Size())
+	assert.Len(t, delCalls, 3) // "two" is also evicted
+	assert.Equal(t, []string{"one", "three", "two"}, delCalls)
 }

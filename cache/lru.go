@@ -1,5 +1,7 @@
 package cache
 
+import "iter"
+
 // NodeKV represents a node in the doubly linked list
 type NodeKV[K comparable, V any] struct {
 	key   K
@@ -16,12 +18,14 @@ type LRU[K comparable, V any] struct {
 	cache    map[K]*NodeKV[K, V]
 	head     *NodeKV[K, V]
 	tail     *NodeKV[K, V]
+	onEvict  func(key K, value V)
 }
 
-func NewLRU[K comparable, V any](capacity int) *LRU[K, V] {
+func NewLRU[K comparable, V any](capacity int, onEvict func(key K, value V)) *LRU[K, V] {
 	return &LRU[K, V]{
 		capacity: capacity,
 		cache:    make(map[K]*NodeKV[K, V], capacity),
+		onEvict:  onEvict,
 	}
 }
 
@@ -34,6 +38,26 @@ func (l *LRU[K, V]) Get(key K) (V, bool) {
 	return zero, false
 }
 
+func (l *LRU[K, V]) Iterator() iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		for node := l.head; node != nil; node = node.next {
+			if !yield(node.key, node.value) {
+				return
+			}
+		}
+	}
+}
+
+func (l *LRU[K, V]) ReverseIterator() iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		for node := l.tail; node != nil; node = node.prev {
+			if !yield(node.key, node.value) {
+				return
+			}
+		}
+	}
+}
+
 func (l *LRU[K, V]) Put(key K, value V) {
 	if node, ok := l.cache[key]; ok {
 		node.value = value
@@ -43,7 +67,9 @@ func (l *LRU[K, V]) Put(key K, value V) {
 
 	if l.Size() == l.capacity {
 		delete(l.cache, l.tail.key)
+		node := l.tail
 		l.remove(l.tail)
+		l.evict(node)
 	}
 
 	newNode := &NodeKV[K, V]{key: key, value: value}
@@ -55,10 +81,14 @@ func (l *LRU[K, V]) Delete(key K) {
 	if node, ok := l.cache[key]; ok {
 		l.remove(node)
 		delete(l.cache, key)
+		l.evict(node)
 	}
 }
 
 func (l *LRU[K, V]) Clear() {
+	for _, node := range l.cache {
+		l.evict(node)
+	}
 	l.cache = make(map[K]*NodeKV[K, V], l.capacity)
 	l.head = nil
 	l.tail = nil
@@ -100,4 +130,10 @@ func (l *LRU[K, V]) add(node *NodeKV[K, V]) {
 	l.head.prev = node
 	node.next = l.head
 	l.head = node
+}
+
+func (l *LRU[K, V]) evict(node *NodeKV[K, V]) {
+	if l.onEvict != nil {
+		l.onEvict(node.key, node.value)
+	}
 }

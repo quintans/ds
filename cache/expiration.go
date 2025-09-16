@@ -1,18 +1,18 @@
 package cache
 
 import (
+	"runtime"
 	"sync"
 	"time"
+	"weak"
 )
 
-var _ Cache[string] = (*Expiration[string])(nil)
-
-type Expiration[V any] struct {
-	items    map[string]*item[V]
-	timeout  time.Duration
-	interval time.Duration
-	quit     chan struct{}
-	mu       sync.Mutex
+type Expiration[K comparable, V any] struct {
+	items   *LRU[K, *item[V]]
+	timeout time.Duration
+	quit    chan struct{}
+	mu      sync.Mutex
+	locks   map[K]*sync.Mutex
 }
 
 type item[V any] struct {
@@ -25,57 +25,43 @@ func (i *item[V]) expired() bool {
 	return i.expiration.Before(time.Now())
 }
 
-func NewExpiration[V any](timeout time.Duration, interval time.Duration) *Expiration[V] {
-	cache := &Expiration[V]{
-		items:    map[string]*item[V]{},
-		timeout:  timeout,
-		interval: interval,
-		quit:     make(chan struct{}),
+func NewExpiration[K comparable, V any](capacity int, timeout time.Duration, interval time.Duration, onEvict func(key K, value V)) *Expiration[K, V] {
+	quit := make(chan struct{})
+	cache := &Expiration[K, V]{
+		items: NewLRU[K, *item[V]](capacity, func(key K, value *item[V]) {
+			onEvict(key, value.value)
+		}),
+		timeout: timeout,
+		quit:    quit,
+		locks:   make(map[K]*sync.Mutex, capacity),
 	}
-	go cache.cleanup(cache.quit)
+
+	runtime.AddCleanup(cache, func(quit chan struct{}) {
+		close(quit)
+	}, quit)
+
+	go cleanup(weak.Make(cache), interval, quit)
+
 	return cache
 }
 
-func (c *Expiration[V]) Close() {
+func (c *Expiration[K, V]) Dispose() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.quit != nil {
 		close(c.quit)
 		c.quit = nil
+		c.items.Clear()
+		c.locks = nil
 	}
 }
 
-func (c *Expiration[V]) cleanup(quit chan struct{}) {
-	ticker := time.NewTicker(c.interval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			c.deleteExpired()
-		case <-quit:
-			return
-		}
-	}
-}
-
-// Delete all expired items from the cache.
-func (c *Expiration[V]) deleteExpired() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for k, v := range c.items {
-		if v.expired() {
-			delete(c.items, k)
-		}
-	}
-}
-
-func (c *Expiration[V]) GetIfPresentAndTouch(key string) (V, bool) {
+func (c *Expiration[K, V]) GetIfPresent(key K) (V, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	v, ok := c.items[key]
+	v, ok := c.items.Get(key)
 	if ok {
 		v.expiration = time.Now().Add(c.timeout)
 		return v.value, true
@@ -84,60 +70,96 @@ func (c *Expiration[V]) GetIfPresentAndTouch(key string) (V, bool) {
 	return zero, false
 }
 
-func (c *Expiration[V]) GetIfPresent(key string) (V, bool) {
+func (c *Expiration[K, V]) Get(key K, callback func() (V, error)) (V, error) {
 	c.mu.Lock()
-	v, ok := c.items[key]
+	it, ok := c.items.Get(key)
 	c.mu.Unlock()
-	if ok {
-		return v.value, true
-	}
-	var zero V
-	return zero, false
-}
 
-func (c *Expiration[V]) Delete(key string) {
-	c.mu.Lock()
-	delete(c.items, key)
-	c.mu.Unlock()
-}
-
-func (c *Expiration[V]) Get(key string, callback func() V) (V, bool) {
-	return c.GetWithDuration(key, callback, c.timeout)
-}
-
-func (c *Expiration[V]) GetWithDuration(key string, callback func() V, duration time.Duration) (V, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	v, ok := c.items[key]
 	if !ok {
-		v = &item[V]{callback(), time.Now().Add(c.timeout)}
-		c.items[key] = v
+		// per key lock to avoid multiple goroutines creating the same item
+		c.mu.Lock()
+		l, ok := c.locks[key]
+		if !ok {
+			l = &sync.Mutex{}
+			c.locks[key] = l
+		}
+		c.mu.Unlock()
+
+		l.Lock()
+		defer l.Unlock()
+
+		// recheck if the item was created while waiting for the lock
+		c.mu.Lock()
+		it, ok = c.items.Get(key)
+		c.mu.Unlock()
+		if ok {
+			it.expiration = time.Now().Add(c.timeout)
+			return it.value, nil
+		}
+
+		// create the item
+		v, err := callback()
+		if err != nil {
+			return *new(V), err
+		}
+		it = &item[V]{v, time.Now().Add(c.timeout)}
+		c.mu.Lock()
+		c.items.Put(key, it)
+		c.mu.Unlock()
 	}
-	return v.value, ok
+	return it.value, nil
 }
 
-func (c *Expiration[V]) Put(key string, value V) {
-	c.PutWithDuration(key, value, c.timeout)
-}
-
-// put a value in the cache, overwriting any previous value for that key
-func (c *Expiration[V]) PutWithDuration(key string, value V, duration time.Duration) {
+func (c *Expiration[K, V]) Put(key K, value V) {
 	c.mu.Lock()
-	// defer now sice I do not know what will happen in a out of memory error
+	// defer now since I do not know what will happen in a out of memory error
 	defer c.mu.Unlock()
-	c.items[key] = &item[V]{value, time.Now().Add(duration)}
+	c.items.Put(key, &item[V]{value, time.Now().Add(c.timeout)})
 }
 
-func (c *Expiration[V]) Touch(key string) {
-	c.TouchWithDuration(key, c.timeout)
-}
-
-func (c *Expiration[V]) TouchWithDuration(key string, duration time.Duration) {
+func (c *Expiration[K, V]) Extend(key K) {
 	c.mu.Lock()
-	v, ok := c.items[key]
+	v, ok := c.items.Get(key)
 	if ok {
-		v.expiration = time.Now().Add(duration)
+		v.expiration = time.Now().Add(c.timeout)
 	}
 	c.mu.Unlock()
+}
+
+func (c *Expiration[K, V]) Delete(key K) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.items.Delete(key)
+}
+
+func cleanup[K comparable, V any](wp weak.Pointer[Expiration[K, V]], interval time.Duration, quit chan struct{}) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			c := wp.Value()
+			if c == nil {
+				return
+			}
+			c.deleteExpired()
+		case <-quit:
+			return
+		}
+	}
+}
+
+// Delete all expired items from the cache.
+func (c *Expiration[K, V]) deleteExpired() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for k, v := range c.items.ReverseIterator() {
+		if !v.expired() {
+			// since the items are ordered by last access time, we can stop here
+			break
+		}
+
+		c.items.Delete(k)
+	}
 }
