@@ -24,7 +24,7 @@ func TestMapSet(t *testing.T) {
 	require.EqualValues(t, []string{"e", "f", "g", "c", "d", "a", "b"}, slices.Collect(m.Values()))
 
 	// key,expectedValue,expectedFound
-	tests1 := [][]interface{}{
+	tests1 := [][]any{
 		{1, "a", true},
 		{2, "b", true},
 		{3, "c", true},
@@ -64,7 +64,7 @@ func TestMapDelete(t *testing.T) {
 	require.EqualValues(t, []string{"c", "d", "a", "b"}, slices.Collect(m.Values()))
 	require.Equal(t, 4, m.Size())
 
-	tests2 := [][]interface{}{
+	tests2 := [][]any{
 		{1, "a", true},
 		{2, "b", true},
 		{3, "c", true},
